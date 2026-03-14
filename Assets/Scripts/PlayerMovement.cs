@@ -24,7 +24,10 @@ namespace Scripts
         private InputAction _moveAction;
         private InputAction _lookAction;
         private InputAction _sprintAction;
+        private InputAction _physicalAttackAction;
+        private InputAction _magicAttackAction;
         private Rigidbody _rigidbody;
+        [SerializeField] private Animator _animator;
 
         private Vector2 _currentMoveInput;
         private Vector2 _currentLookInput;
@@ -37,7 +40,7 @@ namespace Scripts
         // Вертикальный поворот капсулы (для Cinemachine)
         private float _targetXRotation;
         private float _currentXRotation;
-        
+
         // Проверка земли
         private bool _isGrounded;
         [SerializeField] private float _groundCheckDistance = 0.2f;
@@ -45,7 +48,7 @@ namespace Scripts
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody>();
-            
+
             _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
             _rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
 
@@ -61,6 +64,8 @@ namespace Scripts
                     _moveAction = playerMap.FindAction("Move");
                     _lookAction = playerMap.FindAction("Look");
                     _sprintAction = playerMap.FindAction("Sprint");
+                    _physicalAttackAction = playerMap.FindAction("Attack");
+                    _magicAttackAction = playerMap.FindAction("MagicAttack");
                 }
             }
         }
@@ -70,6 +75,16 @@ namespace Scripts
             if (_moveAction != null) _moveAction.Enable();
             if (_lookAction != null) _lookAction.Enable();
             if (_sprintAction != null) _sprintAction.Enable();
+            if (_physicalAttackAction != null)
+            {
+                _physicalAttackAction.Enable();
+                _physicalAttackAction.performed += OnPhysicalAttack;
+            }
+            if (_magicAttackAction != null)
+            {
+                _magicAttackAction.Enable();
+                _magicAttackAction.performed += OnMagicAttack;
+            }
         }
 
         private void OnDisable()
@@ -77,6 +92,26 @@ namespace Scripts
             if (_moveAction != null) _moveAction.Disable();
             if (_lookAction != null) _lookAction.Disable();
             if (_sprintAction != null) _sprintAction.Disable();
+            if (_physicalAttackAction != null)
+            {
+                _physicalAttackAction.Disable();
+                _physicalAttackAction.performed -= OnPhysicalAttack;
+            }
+            if (_magicAttackAction != null)
+            {
+                _magicAttackAction.Disable();
+                _magicAttackAction.performed -= OnMagicAttack;
+            }
+        }
+
+        private void OnPhysicalAttack(InputAction.CallbackContext context)
+        {
+            _animator.SetTrigger("AttackSword");
+        }
+
+        private void OnMagicAttack(InputAction.CallbackContext context)
+        {
+            _animator.SetTrigger("AttackMagic");
         }
 
         private void Update()
@@ -144,7 +179,7 @@ namespace Scripts
             {
                 return;
             }
-            
+
             Vector3 forward = _rigidbody.rotation * Vector3.forward;
             Vector3 right = _rigidbody.rotation * Vector3.right;
             forward.y = 0f;
@@ -153,15 +188,17 @@ namespace Scripts
             Vector3 moveDirection = (forward * _currentMoveInput.y + right * _currentMoveInput.x).normalized;
 
             // Определяем текущую скорость: бег или ходьба
-            float currentSpeed = (_sprintAction != null && _sprintAction.ReadValue<float>() > 0.5f) 
-                ? _sprintSpeed 
-                : _moveSpeed;
+            bool isSprinting = _sprintAction != null && _sprintAction.ReadValue<float>() > 0.5f;
+            float currentSpeed = isSprinting ? _sprintSpeed : _moveSpeed;
 
             if (moveDirection.magnitude > 0.1f)
             {
                 Vector3 velocity = moveDirection * currentSpeed;
                 velocity.y = _rigidbody.linearVelocity.y;
                 _rigidbody.linearVelocity = velocity;
+
+                // Анимация движения
+                _animator.SetFloat("Speed", isSprinting ? 1f : 0.5f);
             }
             else
             {
@@ -169,6 +206,9 @@ namespace Scripts
                 velocity.x = 0f;
                 velocity.z = 0f;
                 _rigidbody.linearVelocity = velocity;
+
+                // Анимация idle
+                _animator.SetFloat("Speed", 0f);
             }
         }
     }

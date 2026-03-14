@@ -9,6 +9,7 @@ namespace Scripts
         [SerializeField] private float _maxHealth = 100f;
         [SerializeField] private Slider _healthSlider;
         [SerializeField] private GameObject _deathEffect;
+        [SerializeField] private Animator _animator;
 
         private float _currentHealth;
 
@@ -23,9 +24,14 @@ namespace Scripts
             _currentHealth -= damage;
             _currentHealth = Mathf.Max(_currentHealth, 0f);
 
+            if (_currentHealth > 0f)
+            {
+                _animator.SetTrigger("TakeHit");
+            }
+
             UpdateHealthBar();
 
-            if (_currentHealth <= 0f)
+            if (_currentHealth <= 0f && enabled == true)
             {
                 Die();
             }
@@ -53,8 +59,18 @@ namespace Scripts
             {
                 Instantiate(_deathEffect, transform.position, transform.rotation);
             }
+            Debug.Log("Die");
+            _animator.SetTrigger("DeathTrigger");
 
-            // Перезагрузка сцены или экран смерти
+            // Отключаем управление и коллайдеры
+            enabled = false;
+
+            // Перезагрузка сцены через 3 секунды
+            Invoke(nameof(ReloadScene), 5f);
+        }
+
+        private void ReloadScene()
+        {
             UnityEngine.SceneManagement.SceneManager.LoadScene(0);
         }
     }
