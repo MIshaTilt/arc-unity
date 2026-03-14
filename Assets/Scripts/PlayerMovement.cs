@@ -28,6 +28,7 @@ namespace Scripts
         private InputAction _magicAttackAction;
         private Rigidbody _rigidbody;
         [SerializeField] private Animator _animator;
+        private PlayerDamage _playerDamage;
 
         private Vector2 _currentMoveInput;
         private Vector2 _currentLookInput;
@@ -48,6 +49,8 @@ namespace Scripts
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody>();
+            //_animator = GetComponent<Animator>();
+            _playerDamage = GetComponent<PlayerDamage>();
 
             _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
             _rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
@@ -116,6 +119,12 @@ namespace Scripts
 
         private void Update()
         {
+            // Блокируем управление после смерти
+            if (_playerDamage != null && _playerDamage.IsDead)
+            {
+                return;
+            }
+
             if (_moveAction != null)
                 _currentMoveInput = _moveAction.ReadValue<Vector2>();
 
@@ -146,6 +155,12 @@ namespace Scripts
 
         private void FixedUpdate()
         {
+            // Блокируем управление после смерти
+            if (_playerDamage != null && _playerDamage.IsDead)
+            {
+                return;
+            }
+
             CheckGround();
             RotatePhysically();
             MovePhysically();

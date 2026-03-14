@@ -12,6 +12,9 @@ namespace Scripts
         [SerializeField] private Animator _animator;
 
         private float _currentHealth;
+        private bool _isDead;
+
+        public bool IsDead => _isDead;
 
         private void Start()
         {
@@ -55,6 +58,8 @@ namespace Scripts
 
         private void Die()
         {
+            _isDead = true;
+
             if (_deathEffect != null)
             {
                 Instantiate(_deathEffect, transform.position, transform.rotation);
