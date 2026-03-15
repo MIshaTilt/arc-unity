@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using Scripts;
 
-public class MeleeWalk : MonoBehaviour
+public class MeleeWalk : MonoBehaviour, IDamageable
 {
     [Header("Enemy Settings")]
     [SerializeField] private float _detectionRange = 10f;
@@ -16,11 +16,21 @@ public class MeleeWalk : MonoBehaviour
     private float _distanceToPlayer;
     private float _lastAttackTime;
     private IDamageable _playerDamageable;
+    [SerializeField] Animator _animator;
+    private bool _isDead;
+    private bool _isAttacking;
 
     private void Start()
     {
         _agent = GetComponent<NavMeshAgent>();
+        //_animator = GetComponent<Animator>();
         _agent.speed = _moveSpeed;
+
+        // Отключаем Root Motion
+        if (_animator != null)
+        {
+            _animator.applyRootMotion = false;
+        }
 
         // Находим игрока по тегу
         GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -33,6 +43,12 @@ public class MeleeWalk : MonoBehaviour
 
     private void Update()
     {
+        // Если умер — блокируем всё
+        if (_isDead)
+        {
+            return;
+        }
+
         if (_player == null)
         {
             return;
@@ -47,18 +63,44 @@ public class MeleeWalk : MonoBehaviour
             if (_distanceToPlayer > _attackRange)
             {
                 _agent.SetDestination(_player.position);
+                
+                // Анимация движения
+                if (_animator != null)
+                {
+                    _animator.SetFloat("Speed", 1f);
+                }
             }
             else
             {
                 // Игрок рядом — останавливаемся и атакуем
                 _agent.SetDestination(transform.position);
+                
+                // Анимация idle
+                if (_animator != null)
+                {
+                    _animator.SetFloat("Speed", 0f);
+                }
+                
                 PerformAttack();
+            }
+        }
+        else
+        {
+            // Игрок вне радиуса — idle
+            if (_animator != null)
+            {
+                _animator.SetFloat("Speed", 0f);
             }
         }
     }
 
     private void PerformAttack()
     {
+        if (_isAttacking)
+        {
+            return;
+        }
+
         if (_playerDamageable == null)
         {
             _playerDamageable = _player.GetComponent<IDamageable>();
@@ -74,6 +116,41 @@ public class MeleeWalk : MonoBehaviour
         // Наносим урон
         _playerDamageable.TakeDamage(_attackDamage);
         _lastAttackTime = Time.time;
+
+        // Анимация атаки
+        if (_animator != null && !_isAttacking)
+        {
+            _isAttacking = true;
+            _animator.SetTrigger("Attack");
+            Invoke(nameof(StopAttack), 0.5f);
+        }
+    }
+
+    private void StopAttack()
+    {
+        _isAttacking = false;
+    }
+
+    public void TakeDamage(float damage)
+    {
+        if (_isDead) return;
+
+        if (_animator != null)
+        {
+            _animator.SetTrigger("TakeHit");
+        }
+    }
+
+    public void Die()
+    {
+        if (_isDead) return;
+
+        _isDead = true;
+
+        if (_animator != null)
+        {
+            _animator.SetTrigger("DeathTrigger");
+        }
     }
 
     private void OnDrawGizmosSelected()

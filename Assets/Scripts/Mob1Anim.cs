@@ -8,7 +8,6 @@ public class Mob1AnimatorTester : MonoBehaviour
     public float moveSpeed = 3f;
     public float rotationSpeed = 10f;
     
-    // Чтобы инвертировать управление, если моб ходит задом (как у героя было)
     [Header("Debug")]
     public bool invertMovement = false; 
 
@@ -35,37 +34,6 @@ public class Mob1AnimatorTester : MonoBehaviour
         HandleInput();
     }
 
-    // void HandleMovement()
-    // {
-    //     float h = Input.GetAxis("Horizontal"); // A/D
-    //     float v = Input.GetAxis("Vertical");   // W/S
-
-    //     // Если нужно инвертировать (если моб ходит задом)
-    //     if (invertMovement)
-    //     {
-    //         h = -h;
-    //         v = -v;
-    //     }
-
-    //     Vector3 move = new Vector3(h, 0, v).normalized;
-
-    //     if (move.magnitude >= 0.1f)
-    //     {
-    //         // Движение
-    //         controller.Move(move * moveSpeed * Time.deltaTime);
-            
-    //         // Поворот
-    //         Quaternion targetRotation = Quaternion.LookRotation(move);
-    //         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            
-    //         // Анимация
-    //         animator.SetFloat("Speed", 1f);
-    //     }
-    //     else
-    //     {
-    //         animator.SetFloat("Speed", 0f);
-    //     }
-    // }
 
     void HandleMovement()
     {

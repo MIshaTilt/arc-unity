@@ -22,7 +22,6 @@ public class Mob2AnimatorTester : MonoBehaviour
         controller = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
         
-        // ВАЖНО: Отключаем Root Motion, чтобы анимация не ломала позицию
         animator.applyRootMotion = false;
     }
 
@@ -35,37 +34,6 @@ public class Mob2AnimatorTester : MonoBehaviour
         HandleInput();
     }
 
-    // void HandleMovement()
-    // {
-    //     float h = Input.GetAxis("Horizontal"); // A/D
-    //     float v = Input.GetAxis("Vertical");   // W/S
-
-    //     // Если нужно инвертировать (если моб ходит задом)
-    //     if (invertMovement)
-    //     {
-    //         h = -h;
-    //         v = -v;
-    //     }
-
-    //     Vector3 move = new Vector3(h, 0, v).normalized;
-
-    //     if (move.magnitude >= 0.1f)
-    //     {
-    //         // Движение
-    //         controller.Move(move * moveSpeed * Time.deltaTime);
-            
-    //         // Поворот
-    //         Quaternion targetRotation = Quaternion.LookRotation(move);
-    //         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            
-    //         // Анимация
-    //         animator.SetFloat("Speed", 1f);
-    //     }
-    //     else
-    //     {
-    //         animator.SetFloat("Speed", 0f);
-    //     }
-    // }
 
     void HandleMovement()
     {
@@ -139,6 +107,5 @@ public class Mob2AnimatorTester : MonoBehaviour
     {
         isDead = true;
         animator.SetTrigger("DeathTrigger");
-        // Скрипт продолжит работать, но Update заблокирован проверкой isDead
     }
 }
