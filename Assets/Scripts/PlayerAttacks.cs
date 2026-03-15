@@ -11,6 +11,8 @@ namespace Scripts
         [SerializeField] private float _attackRange = 2f;
         [SerializeField] private LayerMask _targetLayerMask;
         [SerializeField] private InputActionAsset _inputAsset;
+        [SerializeField] private GameObject _magicSlashVFX;
+        [SerializeField] private Transform _magicAttackPoint; 
 
         private InputAction _physicalAttackAction;
         private InputAction _magicAttackAction;
@@ -110,6 +112,8 @@ namespace Scripts
                     damageable.TakeDamage(_magicDamage);
                 }
 
+                SpawnMagicVFXAtSword();
+
                 // Магический взрыв - урон по области вокруг точки попадания
                 ApplyAreaDamage(hit.point, _magicDamage * 0.5f, 3f);
             }
@@ -117,8 +121,22 @@ namespace Scripts
             {
                 // Если не попали - магический снаряд летит на максимальную дистанцию
                 Vector3 impactPoint = rayOrigin + rayDirection * _attackRange;
+                SpawnMagicVFXAtSword();
                 ApplyAreaDamage(impactPoint, _magicDamage * 0.5f, 3f);
             }
+        }
+
+        private void SpawnMagicVFXAtSword()
+        {
+            if (_magicSlashVFX == null) return;
+            
+            Invoke(nameof(InstantiateVFX), 0.5f);
+        }
+
+        private void InstantiateVFX()
+        {
+            Transform spawnPoint = _magicAttackPoint ?? transform;
+            Instantiate(_magicSlashVFX, spawnPoint.position, spawnPoint.rotation);
         }
 
         private void ApplyAreaDamage(Vector3 center, float damage, float radius)
