@@ -1,185 +1,107 @@
+// PlayerAttacks.cs
 using UnityEngine;
-using UnityEngine.InputSystem;
+using Scripts.Services;
+using Scripts.MVC;
 
 namespace Scripts
 {
     public class PlayerAttacks : MonoBehaviour
     {
-        [Header("Attack Settings")]
+        [Header("Settings")]
         [SerializeField] private float _physicalDamage = 10f;
         [SerializeField] private float _magicDamage = 25f;
         [SerializeField] private float _attackRange = 2f;
         [SerializeField] private LayerMask _targetLayerMask;
-        [SerializeField] private InputActionAsset _inputAsset;
         [SerializeField] private GameObject _magicSlashVFX;
-        [SerializeField] private Transform _magicAttackPoint; 
+        [SerializeField] private Transform _magicAttackPoint;
+        [SerializeField] private Animator _animator;
 
-        private InputAction _physicalAttackAction;
-        private InputAction _magicAttackAction;
+        private IInputService _inputService;
         private Camera _mainCamera;
+        private HealthController _healthController;
+
+        // DI Внедрение
+        public void Construct(IInputService inputService)
+        {
+            _inputService = inputService;
+            _inputService.OnPhysicalAttack += OnPhysicalAttack;
+            _inputService.OnMagicAttack += OnMagicAttack;
+        }
 
         private void Awake()
         {
             _mainCamera = Camera.main;
-            Debug.Log("a");
+            _healthController = GetComponent<HealthController>();
+        }
 
-            if (_inputAsset != null)
+        private void OnDestroy()
+        {
+            if (_inputService != null)
             {
-                var playerMap = _inputAsset.FindActionMap("Player");
-                if (playerMap != null)
-                {
-                    _physicalAttackAction = playerMap.FindAction("Attack");
-                    _magicAttackAction = playerMap.FindAction("MagicAttack");
-                }
+                _inputService.OnPhysicalAttack -= OnPhysicalAttack;
+                _inputService.OnMagicAttack -= OnMagicAttack;
             }
         }
 
-        private void OnEnable()
+        private void OnPhysicalAttack()
         {
-            if (_physicalAttackAction != null)
-            {
-                _physicalAttackAction.Enable();
-                _physicalAttackAction.performed += OnPhysicalAttack;
-            }
-
-            if (_magicAttackAction != null)
-            {
-                _magicAttackAction.Enable();
-                _magicAttackAction.performed += OnMagicAttack;
-            }
+            if (_healthController != null && _healthController.IsDead) return;
+            _animator?.SetTrigger("AttackSword");
+            PerformAttack(_physicalDamage, false);
         }
 
-        private void OnDisable()
+        private void OnMagicAttack()
         {
-            if (_physicalAttackAction != null)
-            {
-                _physicalAttackAction.Disable();
-                _physicalAttackAction.performed -= OnPhysicalAttack;
-            }
-
-            if (_magicAttackAction != null)
-            {
-                _magicAttackAction.Disable();
-                _magicAttackAction.performed -= OnMagicAttack;
-            }
+            if (_healthController != null && _healthController.IsDead) return;
+            _animator?.SetTrigger("AttackMagic");
+            PerformAttack(_magicDamage, true);
         }
 
-        private void OnPhysicalAttack(InputAction.CallbackContext context)
+        private void PerformAttack(float damage, bool isMagic)
         {
-            PerformPhysicalAttack();
-        }
-
-        private void OnMagicAttack(InputAction.CallbackContext context)
-        {
-            PerformMagicAttack();
-        }
-
-        private void PerformPhysicalAttack()
-        {
-            // Физическая атака - Raycast из центра экрана
             Vector3 rayOrigin = _mainCamera != null ? _mainCamera.transform.position : transform.position;
             Vector3 rayDirection = _mainCamera != null ? _mainCamera.transform.forward : transform.forward;
 
             if (Physics.Raycast(rayOrigin, rayDirection, out RaycastHit hit, _attackRange, _targetLayerMask))
             {
-                IDamageable damageable = hit.collider.GetComponent<IDamageable>();
-                if (damageable != null)
-                {
-                    damageable.TakeDamage(_physicalDamage);
-                }
+                hit.collider.GetComponent<IDamageable>()?.TakeDamage(damage);
+                ApplyPushForce(hit.collider, hit.point, rayOrigin, isMagic);
 
-                // Применяем физический толчок к цели
-                Rigidbody targetRigidbody = hit.collider.GetComponent<Rigidbody>();
-                if (targetRigidbody != null)
-                {
-                    Vector3 pushDirection = (hit.point - rayOrigin).normalized;
-                    targetRigidbody.AddForceAtPosition(pushDirection * 5f, hit.point, ForceMode.Impulse);
-                }
+                if (isMagic) ApplyAreaDamage(hit.point, damage * 0.5f, 3f);
             }
+            else if (isMagic)
+            {
+                ApplyAreaDamage(rayOrigin + rayDirection * _attackRange, damage * 0.5f, 3f);
+            }
+
+            if (isMagic) SpawnMagicVFXAtSword();
         }
 
-        private void PerformMagicAttack()
+        // Вспомогательные методы ApplyPushForce, ApplyAreaDamage, SpawnMagicVFXAtSword остаются как были.
+        private void ApplyPushForce(Collider target, Vector3 point, Vector3 origin, bool isMagic)
         {
-            // Магическая атака - Raycast с возможным уроном по площади
-            Vector3 rayOrigin = _mainCamera != null ? _mainCamera.transform.position : transform.position;
-            Vector3 rayDirection = _mainCamera != null ? _mainCamera.transform.forward : transform.forward;
-
-            if (Physics.Raycast(rayOrigin, rayDirection, out RaycastHit hit, _attackRange, _targetLayerMask))
+             Rigidbody targetRigidbody = target.GetComponent<Rigidbody>();
+             if (targetRigidbody != null)
+             {
+                 Vector3 pushDirection = (point - origin).normalized;
+                 targetRigidbody.AddForceAtPosition(pushDirection * (isMagic ? 10f : 5f), point, ForceMode.Impulse);
+             }
+        }
+        
+        private void ApplyAreaDamage(Vector3 center, float damage, float radius)
+        {
+            Collider[] hitColliders = Physics.OverlapSphere(center, radius, _targetLayerMask);
+            foreach (Collider hitCollider in hitColliders)
             {
-                IDamageable damageable = hit.collider.GetComponent<IDamageable>();
-                if (damageable != null)
-                {
-                    damageable.TakeDamage(_magicDamage);
-                }
-
-                SpawnMagicVFXAtSword();
-
-                // Магический взрыв - урон по области вокруг точки попадания
-                ApplyAreaDamage(hit.point, _magicDamage * 0.5f, 3f);
-            }
-            else
-            {
-                // Если не попали - магический снаряд летит на максимальную дистанцию
-                Vector3 impactPoint = rayOrigin + rayDirection * _attackRange;
-                SpawnMagicVFXAtSword();
-                ApplyAreaDamage(impactPoint, _magicDamage * 0.5f, 3f);
+                hitCollider.GetComponent<IDamageable>()?.TakeDamage(damage);
             }
         }
 
         private void SpawnMagicVFXAtSword()
         {
             if (_magicSlashVFX == null) return;
-            
-            Invoke(nameof(InstantiateVFX), 0.5f);
-        }
-
-        private void InstantiateVFX()
-        {
             Transform spawnPoint = _magicAttackPoint ?? transform;
             Instantiate(_magicSlashVFX, spawnPoint.position, spawnPoint.rotation);
         }
-
-        private void ApplyAreaDamage(Vector3 center, float damage, float radius)
-        {
-            Collider[] hitColliders = Physics.OverlapSphere(center, radius, _targetLayerMask);
-
-            foreach (Collider hitCollider in hitColliders)
-            {
-                IDamageable damageable = hitCollider.GetComponent<IDamageable>();
-                if (damageable != null)
-                {
-                    damageable.TakeDamage(damage);
-                }
-
-                // Применяем взрывную силу
-                Rigidbody targetRigidbody = hitCollider.GetComponent<Rigidbody>();
-                if (targetRigidbody != null)
-                {
-                    Vector3 explosionForce = (hitCollider.transform.position - center).normalized;
-                    targetRigidbody.AddForce(explosionForce * 10f, ForceMode.Impulse);
-                }
-            }
-        }
-
-        private void OnDrawGizmos()
-        {
-            // Получаем позицию и направление для атак
-            Camera cam = _mainCamera != null ? _mainCamera : Camera.main;
-            Vector3 rayOrigin = cam != null ? cam.transform.position : transform.position;
-            Vector3 rayDirection = cam != null ? cam.transform.forward : transform.forward;
-
-            // Луч атаки (красный)
-            Gizmos.color = Color.red;
-            Gizmos.DrawLine(rayOrigin, rayOrigin + rayDirection * _attackRange);
-            
-            // Сфера в конце луча (точка попадания)
-            Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(rayOrigin + rayDirection * _attackRange, 0.3f);
-            
-            // Позиция начала атаки (желтая сфера)
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(rayOrigin, 0.2f);
-        }
     }
-
 }

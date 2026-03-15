@@ -1,200 +1,112 @@
 using UnityEngine;
-using UnityEngine.AI;
-using Scripts;
-using System.Linq.Expressions;
+using Scripts.MVC; // Пространство имен, где лежит HealthController
 
-public class RangedWalk : MonoBehaviour, IDamageable
+namespace Scripts.AI
 {
-    [Header("Enemy Settings")]
-    [SerializeField] private float _detectionRange = 15f;
-    [SerializeField] private float _minAttackRange = 5f;
-    [SerializeField] private float _maxAttackRange = 10f;
-    [SerializeField] private float _moveSpeed = 3f;
-    [SerializeField] private float _attackCooldown = 3f;
-    [SerializeField] private GameObject _fireballPrefab;
-
-    private NavMeshAgent _agent;
-    private Transform _player;
-    private float _distanceToPlayer;
-    private Vector3 _optimalPosition;
-    private float _lastAttackTime;
-    [SerializeField] private Animator _animator;
-    private bool _isDead;
-    private bool _isAttacking;
-
-    private void Start()
+    public class RangedWalk : EnemyAI
     {
-        _agent = GetComponent<NavMeshAgent>();
-        //_animator = GetComponent<Animator>();
-        _agent.speed = _moveSpeed;
+        [Header("Ranged Specific Settings")]
+        [SerializeField] private float _minAttackRange = 5f;
+        [SerializeField] private float _maxAttackRange = 10f;
+        [SerializeField] private GameObject _fireballPrefab;
 
-        // Отключаем Root Motion
-        if (_animator != null)
+        // Метод ExecuteBehavior вызывается из базового класса EnemyAI в Update(),
+        // но только если враг жив и цель (_target) существует.
+        protected override void ExecuteBehavior()
         {
-            _animator.applyRootMotion = false;
-        }
+            float distanceToTarget = Vector3.Distance(transform.position, _target.position);
 
-        // Находим игрока по тегу
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
-        {
-            _player = player.transform;
-        }
-    }
-
-    private void Update()
-    {
-        // Если умер — блокируем всё
-        if (_isDead)
-        {
-            return;
-        }
-
-        if (_player == null)
-        {
-            return;
-        }
-
-        _distanceToPlayer = Vector3.Distance(transform.position, _player.position);
-
-        // Если игрок в радиусе обнаружения
-        if (_distanceToPlayer <= _detectionRange)
-        {
-            // Если слишком близко — отходим
-            if (_distanceToPlayer < _minAttackRange)
+            // Если игрок в радиусе обнаружения
+            if (distanceToTarget <= _detectionRange)
             {
-                MoveAwayFromPlayer();
-                
-                // Анимация движения
-                if (_animator != null)
+                // Если слишком близко — отходим
+                if (distanceToTarget < _minAttackRange)
                 {
-                    _animator.SetFloat("Speed", 1f);
+                    MoveAwayFromTarget();
+                    _animator?.SetFloat("Speed", 1f);
+                }
+                // Если слишком далеко — приближаемся
+                else if (distanceToTarget > _maxAttackRange)
+                {
+                    MoveTowardsTarget();
+                    _animator?.SetFloat("Speed", 1f);
+                }
+                // Если в оптимальной зоне — стоим и атакуем
+                else
+                {
+                    _agent.SetDestination(transform.position); // Остановка
+                    _animator?.SetFloat("Speed", 0f);
+                    PerformAttack();
                 }
             }
-            // Если слишком далеко — приближаемся
-            else if (_distanceToPlayer > _maxAttackRange)
-            {
-                MoveTowardsPlayer();
-                
-                // Анимация движения
-                if (_animator != null)
-                {
-                    _animator.SetFloat("Speed", 1f);
-                }
-            }
-            // Если в оптимальной зоне — стоим и атакуем
             else
             {
-                _agent.SetDestination(transform.position);
-                
-                // Анимация idle
-                if (_animator != null)
-                {
-                    _animator.SetFloat("Speed", 0f);
-                }
-                
-                PerformAttack();
+                // Игрок вне радиуса — стоим на месте
+                _animator?.SetFloat("Speed", 0f);
             }
         }
-        else
+
+        private void MoveTowardsTarget()
         {
-            // Игрок вне радиуса — idle
+            // Идем к точке, находящейся на границе максимального радиуса атаки
+            Vector3 direction = (_target.position - transform.position).normalized;
+            Vector3 targetPosition = _target.position - direction * _maxAttackRange;
+            _agent.SetDestination(targetPosition);
+        }
+
+        private void MoveAwayFromTarget()
+        {
+            // Отходим на границу минимального радиуса атаки (отступаем)
+            Vector3 direction = (_target.position - transform.position).normalized;
+            Vector3 targetPosition = _target.position - direction * _minAttackRange;
+            _agent.SetDestination(targetPosition);
+        }
+
+        private void PerformAttack()
+        {
+            // Проверяем состояние атаки и кулдаун (переменные унаследованы от EnemyAI)
+            if (_isAttacking || Time.time - _lastAttackTime < _attackCooldown)
+            {
+                return;
+            }
+
+            if (_fireballPrefab == null) return;
+
+            // Логика из оригинала: спавн файербола над игроком
+            Vector3 fireballPosition = _target.position + Vector3.up * 2f;
+            Instantiate(_fireballPrefab, fireballPosition, Quaternion.identity);
+
+            _lastAttackTime = Time.time;
+
             if (_animator != null)
             {
-                _animator.SetFloat("Speed", 0f);
+                _isAttacking = true;
+                _animator.SetTrigger("Attack");
+                
+                // Сбрасываем флаг атаки через полсекунды
+                Invoke(nameof(StopAttack), 0.5f);
             }
         }
-    }
 
-    private void MoveTowardsPlayer()
-    {
-        Vector3 direction = (_player.position - transform.position).normalized;
-        Vector3 targetPosition = _player.position - direction * _maxAttackRange;
-        _agent.SetDestination(targetPosition);
-    }
-
-    private void MoveAwayFromPlayer()
-    {
-        Vector3 direction = (_player.position - transform.position).normalized;
-        Vector3 targetPosition = _player.position - direction * _minAttackRange;
-        _agent.SetDestination(targetPosition);
-    }
-
-    private void PerformAttack()
-    {
-        if (_isAttacking)
+        private void StopAttack()
         {
-            return;
+            _isAttacking = false;
         }
 
-        // Проверяем кулдаун
-        if (Time.time - _lastAttackTime < _attackCooldown)
+        // Отрисовка зон в редакторе Unity для удобства настройки
+        private void OnDrawGizmosSelected()
         {
-            return;
+            // Радиус обнаружения (желтый) - переменная из базового класса
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(transform.position, _detectionRange);
+
+            // Минимальная дистанция атаки (оранжевый)
+            Gizmos.color = Color.orange;
+            Gizmos.DrawWireSphere(transform.position, _minAttackRange);
+
+            // Максимальная дистанция атаки (зеленый)
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(transform.position, _maxAttackRange);
         }
-
-        if (_fireballPrefab == null || _player == null)
-        {
-            return;
-        }
-
-        // Создаем файербол прямо над игроком (на высоте 2 метра)
-        Vector3 fireballPosition = _player.position + Vector3.up * 2f;
-        Instantiate(_fireballPrefab, fireballPosition, Quaternion.identity);
-
-        _lastAttackTime = Time.time;
-
-        // Анимация атаки
-        if (_animator != null && !_isAttacking)
-        {
-            _isAttacking = true;
-            _animator.SetTrigger("Attack");
-            Invoke(nameof(StopAttack), 0.5f);
-        }
-    }
-
-    private void StopAttack()
-    {
-        _isAttacking = false;
-    }
-
-    public void TakeDamage(float damage)
-    {
-        Debug.Log("Ahhh hit");
-        if (_isDead) return;
-
-        if (_animator != null)
-        {
-            Debug.Log("TakeHit");
-            
-        }
-    }
-
-    public void Die()
-    {
-        if (_isDead) return;
-
-        _isDead = true;
-
-        if (_animator != null)
-        {
-            Debug.Log("DeathTrigger");
-            _animator.SetTrigger("DeathTrigger");
-        }
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-        // Радиус обнаружения (желтый)
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, _detectionRange);
-
-        // Минимальная дистанция атаки (оранжевый)
-        Gizmos.color = Color.orange;
-        Gizmos.DrawWireSphere(transform.position, _minAttackRange);
-
-        // Максимальная дистанция атаки (зеленый)
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(transform.position, _maxAttackRange);
     }
 }
