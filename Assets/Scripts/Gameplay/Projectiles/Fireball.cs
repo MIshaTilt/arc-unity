@@ -16,6 +16,8 @@ public class Fireball : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         // Проверяем, что столкнулись с игроком
+        if (!other.CompareTag("Player")) return;
+
         IDamageable damageable = other.GetComponent<IDamageable>();
         if (damageable != null)
         {

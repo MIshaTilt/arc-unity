@@ -1,5 +1,6 @@
 // PlayerAttacks.cs
 using UnityEngine;
+using UnityEngine.UI;
 using Scripts.Services;
 using Scripts.MVC;
 
@@ -16,9 +17,19 @@ namespace Scripts
         [SerializeField] private Transform _magicAttackPoint;
         [SerializeField] private Animator _animator;
 
+        [Header("Cooldowns")]
+        [SerializeField] private float _physicalCooldown = 1.5f;
+        [SerializeField] private float _magicCooldown = 5f;
+        [SerializeField] private Image _magicCooldownIndicator;
+
         private IInputService _inputService;
         private Camera _mainCamera;
         private HealthController _healthController;
+
+        private float _physicalCooldownTimer;
+        private float _magicCooldownTimer;
+        private bool _isPhysicalReady => _physicalCooldownTimer <= 0f;
+        private bool _isMagicReady => _magicCooldownTimer <= 0f;
 
         // DI Внедрение
         public void Construct(IInputService inputService)
@@ -34,6 +45,26 @@ namespace Scripts
             _healthController = GetComponent<HealthController>();
         }
 
+        private void Update()
+        {
+            if (_physicalCooldownTimer > 0f)
+                _physicalCooldownTimer -= Time.deltaTime;
+
+            if (_magicCooldownTimer > 0f)
+            {
+                _magicCooldownTimer -= Time.deltaTime;
+                UpdateMagicIndicator();
+            }
+        }
+
+        private void UpdateMagicIndicator()
+        {
+            if (_magicCooldownIndicator != null)
+            {
+                _magicCooldownIndicator.color = _isMagicReady ? Color.green : Color.red;
+            }
+        }
+
         private void OnDestroy()
         {
             if (_inputService != null)
@@ -46,6 +77,9 @@ namespace Scripts
         private void OnPhysicalAttack()
         {
             if (_healthController != null && _healthController.IsDead) return;
+            if (!_isPhysicalReady) return;
+
+            _physicalCooldownTimer = _physicalCooldown;
             _animator?.SetTrigger("AttackSword");
             PerformAttack(_physicalDamage, false);
         }
@@ -53,14 +87,17 @@ namespace Scripts
         private void OnMagicAttack()
         {
             if (_healthController != null && _healthController.IsDead) return;
+            if (!_isMagicReady) return;
+
+            _magicCooldownTimer = _magicCooldown;
             _animator?.SetTrigger("AttackMagic");
             PerformAttack(_magicDamage, true);
         }
 
         private void PerformAttack(float damage, bool isMagic)
         {
-            Vector3 rayOrigin = _mainCamera != null ? _mainCamera.transform.position : transform.position;
-            Vector3 rayDirection = _mainCamera != null ? _mainCamera.transform.forward : transform.forward;
+            Vector3 rayOrigin = transform.position;
+            Vector3 rayDirection = transform.forward;
 
             if (Physics.Raycast(rayOrigin, rayDirection, out RaycastHit hit, _attackRange, _targetLayerMask))
             {

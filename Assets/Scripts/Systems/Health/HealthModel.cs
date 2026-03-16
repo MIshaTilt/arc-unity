@@ -6,7 +6,7 @@ namespace Scripts.MVC
 {
     public class HealthModel
     {
-        public event Action<float> OnHealthChanged; // Передает нормализованное значение (0-1)
+        public event Action<float, float> OnHealthChanged; // (normalized, current)
         public event Action OnDied;
         public event Action OnDamaged;
 
@@ -26,9 +26,9 @@ namespace Scripts.MVC
 
             _currentHealth -= damage;
             _currentHealth = Mathf.Max(_currentHealth, 0f);
-            
+
             OnDamaged?.Invoke();
-            OnHealthChanged?.Invoke(_currentHealth / _maxHealth);
+            OnHealthChanged?.Invoke(_currentHealth / _maxHealth, _currentHealth);
 
             if (IsDead) OnDied?.Invoke();
         }

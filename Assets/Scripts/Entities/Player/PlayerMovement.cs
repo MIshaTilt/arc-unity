@@ -46,8 +46,16 @@ namespace Scripts
             _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
             _rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
 
+            _healthController.OnDeathEvent.AddListener(OnPlayerDied);
+
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+        }
+
+        private void OnPlayerDied()
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         private void Update()

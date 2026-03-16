@@ -48,14 +48,11 @@ namespace Scripts
 
         private void OnPlayerDied()
         {
-            Debug.Log("Игрок умер. Перезагрузка сцены через 5 секунд...");
-            // Вызываем перезагрузку через 5 секунд
-            Invoke(nameof(ReloadScene), 5f);
+            Debug.Log("Игрок умер. Игра остановлена.");
         }
 
-        private void ReloadScene()
+        public void RestartLevel()
         {
-            // Загружаем текущую активную сцену (лучше, чем жестко указывать индекс 0)
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
