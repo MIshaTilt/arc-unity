@@ -4,6 +4,8 @@ using UnityEngine.SceneManagement; // Добавлено для работы с�
 using Scripts.Services;
 using Scripts.AI;
 using Scripts.MVC; // Добавлено для доступа к HealthController
+using Scripts.Architecture; // Для Service Locator
+using Scripts.UI.PauseMenu;
 
 namespace Scripts
 {
@@ -16,8 +18,10 @@ namespace Scripts
         [SerializeField] private PlayerMovement _playerMovement;
         [SerializeField] private PlayerAttacks _playerAttacks;
         [SerializeField] private EnemyAI[] _enemiesOnScene;
+        [Header("UI")][SerializeField] private PauseMenuView _pauseView; 
 
         private StandaloneInputService _inputService;
+        private PauseMenuController _pauseController;
 
         private void Awake()
         {
@@ -43,6 +47,25 @@ namespace Scripts
             {
                 // Слушаем событие смерти из HealthController
                 playerHealth.OnDeathEvent.AddListener(OnPlayerDied);
+            }
+        }
+
+        // Для инициализации паузы
+        private void Start()
+        {
+            // Получаем сервис сохранений из глобального локатора
+            ISaveService saveService = ServiceLocator.Get<ISaveService>();
+
+            // Собираем MVC для паузы
+            _pauseController = new PauseMenuController(_pauseView, saveService);
+        }
+
+        // Для прослушивания кнопки Esc
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                _pauseController?.TogglePause();
             }
         }
 
