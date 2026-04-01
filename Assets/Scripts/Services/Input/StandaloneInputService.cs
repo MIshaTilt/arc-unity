@@ -13,12 +13,16 @@ namespace Scripts.Services
         private readonly InputAction _physicalAttackAction;
         private readonly InputAction _magicAttackAction;
 
+        private readonly InputAction _pauseAction;
+
         public Vector2 MoveInput => _moveAction?.ReadValue<Vector2>() ?? Vector2.zero;
         public Vector2 LookInput => _lookAction?.ReadValue<Vector2>() ?? Vector2.zero;
         public bool IsSprinting => _sprintAction?.ReadValue<float>() > 0.5f;
 
         public event Action OnPhysicalAttack;
         public event Action OnMagicAttack;
+
+        public event Action OnPauseToggle;
 
         public StandaloneInputService(InputActionAsset inputAsset)
         {
@@ -30,11 +34,13 @@ namespace Scripts.Services
             _sprintAction = playerMap.FindAction("Sprint");
             _physicalAttackAction = playerMap.FindAction("Attack");
             _magicAttackAction = playerMap.FindAction("MagicAttack");
+            _pauseAction = playerMap.FindAction("Pause"); 
 
             Enable();
 
             _physicalAttackAction.performed += _ => OnPhysicalAttack?.Invoke();
             _magicAttackAction.performed += _ => OnMagicAttack?.Invoke();
+            _pauseAction.performed += _ => OnPauseToggle?.Invoke();
         }
 
         private void Enable()
@@ -44,6 +50,7 @@ namespace Scripts.Services
             _sprintAction?.Enable();
             _physicalAttackAction?.Enable();
             _magicAttackAction?.Enable();
+            _pauseAction?.Enable(); 
         }
 
         public void Dispose()
@@ -53,6 +60,7 @@ namespace Scripts.Services
             _sprintAction?.Disable();
             _physicalAttackAction?.Disable();
             _magicAttackAction?.Disable();
+            _pauseAction?.Disable();
         }
     }
 }

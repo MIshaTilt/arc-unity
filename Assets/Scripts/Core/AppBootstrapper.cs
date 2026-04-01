@@ -11,7 +11,7 @@ namespace Scripts.Core
         {
             DontDestroyOnLoad(gameObject); // Защищаем от уничтожения
 
-            // 1. Создаем реализации (Слой Frameworks & Drivers)
+            // 1. Создаем реализации 
             IAudioService audioService = new UnityAudioService();
             ISaveService saveService = new PlayerPrefsSaveService();
 

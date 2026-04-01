@@ -58,16 +58,19 @@ namespace Scripts
 
             // Собираем MVC для паузы
             _pauseController = new PauseMenuController(_pauseView, saveService);
+
+            // Подписываемся на ввод
+            _inputService.OnPauseToggle += _pauseController.TogglePause;
         }
 
-        // Для прослушивания кнопки Esc
-        private void Update()
-        {
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                _pauseController?.TogglePause();
-            }
-        }
+        // // Для прослушивания кнопки Esc для старой инпут систем
+        // private void Update()
+        // {
+        //     if (Input.GetKeyDown(KeyCode.Escape))
+        //     {
+        //         _pauseController?.TogglePause();
+        //     }
+        // }
 
         private void OnPlayerDied()
         {
@@ -81,6 +84,11 @@ namespace Scripts
 
         private void OnDestroy()
         {
+            // Отписываемся от события при уничтожении объекта
+            if (_inputService != null && _pauseController != null)
+            {
+                _inputService.OnPauseToggle -= _pauseController.TogglePause;
+            }
             _inputService?.Dispose();
         }
     }
