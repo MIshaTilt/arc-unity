@@ -12,5 +12,7 @@ namespace Scripts.Services
         
         event Action OnPhysicalAttack;
         event Action OnMagicAttack;
+
+        event Action OnPauseToggle; 
     }
 }
