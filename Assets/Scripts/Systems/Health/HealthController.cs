@@ -47,16 +47,24 @@ namespace Scripts.MVC
         {
             if (_healthModel == null) return;
 
-            // Если персонаж мёртв — воскрешаем
+            // Если персонаж мёртв — воскрешаем только если health > 0
             if (_healthModel.IsDead && health > 0)
             {
                 _healthModel.Resurrect();
+                _healthModel.SetHealth(health);
             }
+            else if (!_healthModel.IsDead)
+            {
+                // Если жив — просто ставим HP
+                _healthModel.SetHealth(health);
+            }
+            // Если мёртв и health <= 0 — ничего не делаем, остаётся мёртвым
 
-            _healthModel.SetHealth(health);
-
-            // Обновляем UI
-            _healthView?.UpdateHealth(_healthModel.CurrentHealth / _maxHealth, _healthModel.CurrentHealth);
+            // Обновляем UI (используем MaxHealth из модели, а не из сериализованного поля)
+            float normalizedHealth = _healthModel.MaxHealth > 0 
+                ? _healthModel.CurrentHealth / _healthModel.MaxHealth 
+                : 0f;
+            _healthView?.UpdateHealth(normalizedHealth, _healthModel.CurrentHealth);
         }
 
         private void PlayHitAnimation()

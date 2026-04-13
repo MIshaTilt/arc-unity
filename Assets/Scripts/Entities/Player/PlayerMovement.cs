@@ -86,11 +86,31 @@ namespace Scripts
             _targetYRotation = data.rotationY;
             _currentYRotation = data.rotationY;
 
-            // Восстанавливаем здоровье
+            // Восстанавливаем здоровье и состояние из extraData
             var healthCtrl = GetComponent<HealthController>();
             if (healthCtrl != null)
             {
-                healthCtrl.SetHealth(data.currentHealth);
+                // Сначала парсим extraData чтобы получить full state
+                if (!string.IsNullOrEmpty(data.extraData))
+                {
+                    var stateData = JsonUtility.FromJson<PlayerStateData>(data.extraData);
+                    
+                    // Если игрок был мёртв — воскрешаем с полным HP
+                    if (stateData.isDead)
+                    {
+                        healthCtrl.SetHealth(stateData.maxHealth);
+                        Debug.Log("[PlayerMovement] Игрок был мёртв при загрузке — воскрешён с полным HP.");
+                    }
+                    else
+                    {
+                        healthCtrl.SetHealth(stateData.currentHealth);
+                    }
+                }
+                else
+                {
+                    // Fallback: используем данные из entity
+                    healthCtrl.SetHealth(data.currentHealth);
+                }
             }
 
             // Восстанавливаем кулдауны
