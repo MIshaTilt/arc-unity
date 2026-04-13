@@ -5459,7 +5459,15 @@ MonoBehaviour:
   - {fileID: 308760077}
   - {fileID: 615364634}
   - {fileID: 1945696986}
+  _enemySaveIds: []
   _pauseView: {fileID: 101251757}
+  _usePocketBase: 1
+  _pocketBaseConfig:
+    BaseUrl: http://192.168.50.61:8090
+    AdminEmail: admin@yourdomain.com
+    AdminPassword: your-secure-password-here
+    SavesCollection: game_saves
+    AuthCollection: users
 --- !u!4 &653187967
 Transform:
   m_ObjectHideFlags: 0

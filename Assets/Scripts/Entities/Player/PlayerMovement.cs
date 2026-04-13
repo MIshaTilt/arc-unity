@@ -2,10 +2,12 @@
 using UnityEngine;
 using Scripts.Services;
 using Scripts.MVC;
+using Scripts.Save;
+using Scripts.Save.DTO;
 
 namespace Scripts
 {
-    public class PlayerMovement : MonoBehaviour
+    public class PlayerMovement : MonoBehaviour, IEntitySaveable
     {
         [Header("Movement Settings")]
         [SerializeField] private float _moveSpeed = 5f;
@@ -23,6 +25,7 @@ namespace Scripts
 
         private Rigidbody _rigidbody;
         private HealthController _healthController; // Замена PlayerDamage
+        private PlayerAttacks _playerAttacks; // Ссылка на атаки для получения кулдаунов
         private IInputService _inputService;
 
         private float _targetYRotation;
@@ -32,10 +35,89 @@ namespace Scripts
         private float _currentXRotation;
         private bool _isGrounded;
 
+        #region IEntitySaveable
+
+        public string SaveId => "player";
+        public string EntityType => "Player";
+
+        /// <summary>
+        /// Сериализовать состояние игрока (позиция + данные из extraData).
+        /// </summary>
+        public EntitySaveData CaptureState()
+        {
+            var healthCtrl = GetComponent<HealthController>();
+            float currentHealth = healthCtrl != null ? healthCtrl.CurrentHealth : 100f;
+            float maxHealth = healthCtrl != null ? healthCtrl.MaxHealth : 100f;
+
+            var stateData = new PlayerStateData
+            {
+                currentHealth = currentHealth,
+                maxHealth = maxHealth,
+                isDead = healthCtrl != null && healthCtrl.IsDead,
+                physicalCooldownTimer = _playerAttacks != null ? _playerAttacks.PhysicalCooldownTimer : 0f,
+                magicCooldownTimer = _playerAttacks != null ? _playerAttacks.MagicCooldownTimer : 0f
+            };
+
+            return new EntitySaveData
+            {
+                id = SaveId,
+                entityType = EntityType,
+                positionX = transform.position.x,
+                positionY = transform.position.y,
+                positionZ = transform.position.z,
+                rotationY = transform.eulerAngles.y,
+                currentHealth = currentHealth,
+                maxHealth = maxHealth,
+                isAlive = healthCtrl != null && !healthCtrl.IsDead,
+                extraData = JsonUtility.ToJson(stateData)
+            };
+        }
+
+        /// <summary>
+        /// Восстановить состояние игрока из сохранения.
+        /// </summary>
+        public void RestoreState(EntitySaveData data)
+        {
+            // Восстанавливаем позицию
+            transform.position = new Vector3(data.positionX, data.positionY, data.positionZ);
+            transform.rotation = Quaternion.Euler(0f, data.rotationY, 0f);
+
+            // Сбрасываем целевые углы камеры
+            _targetYRotation = data.rotationY;
+            _currentYRotation = data.rotationY;
+
+            // Восстанавливаем здоровье
+            var healthCtrl = GetComponent<HealthController>();
+            if (healthCtrl != null)
+            {
+                healthCtrl.SetHealth(data.currentHealth);
+            }
+
+            // Восстанавливаем кулдауны
+            if (_playerAttacks != null && !string.IsNullOrEmpty(data.extraData))
+            {
+                var stateData = JsonUtility.FromJson<PlayerStateData>(data.extraData);
+                _playerAttacks.SetCooldowns(stateData.physicalCooldownTimer, stateData.magicCooldownTimer);
+            }
+
+            Debug.Log("[PlayerMovement] Состояние игрока восстановлено.");
+        }
+
+        #endregion
+
         // DI Внедрение зависимости
         public void Construct(IInputService inputService)
         {
             _inputService = inputService;
+        }
+
+        /// <summary>
+        /// Устанавливает ссылку на PlayerAttacks (для чтения кулдаунов).
+        /// Вызывается из GameBootstrapper.
+        /// </summary>
+        public void SetPlayerAttacks(PlayerAttacks attacks)
+        {
+            _playerAttacks = attacks;
         }
 
         private void Awake()

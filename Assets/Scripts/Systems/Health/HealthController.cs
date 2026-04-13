@@ -17,6 +17,8 @@ namespace Scripts.MVC
 
         private HealthModel _healthModel;
         public bool IsDead => _healthModel != null && _healthModel.IsDead;
+        public float CurrentHealth => _healthModel != null ? _healthModel.CurrentHealth : 0f;
+        public float MaxHealth => _maxHealth;
 
         private void Awake()
         {
@@ -36,6 +38,25 @@ namespace Scripts.MVC
         public void TakeDamage(float damage)
         {
             _healthModel.TakeDamage(damage);
+        }
+
+        /// <summary>
+        /// Устанавливает текущее здоровье (для загрузки из сохранения).
+        /// </summary>
+        public void SetHealth(float health)
+        {
+            if (_healthModel == null) return;
+
+            // Если персонаж мёртв — воскрешаем
+            if (_healthModel.IsDead && health > 0)
+            {
+                _healthModel.Resurrect();
+            }
+
+            _healthModel.SetHealth(health);
+
+            // Обновляем UI
+            _healthView?.UpdateHealth(_healthModel.CurrentHealth / _maxHealth, _healthModel.CurrentHealth);
         }
 
         private void PlayHitAnimation()
