@@ -67,10 +67,14 @@ namespace Scripts.Save.Interactor
                     saveData.playerState = JsonUtility.FromJson<PlayerStateData>(playerStateData.extraData);
                 }
 
-                // Заполняем данные врагов
+                // Заполняем данные врагов (пропускаем уничтоженных)
                 var enemyList = new List<EnemySaveData>();
                 foreach (var saveable in _saveableEntities)
                 {
+                    // Пропускаем уничтоженные объекты (Unity перегружает == для Object)
+                    if (saveable is UnityEngine.Object unityObj && unityObj == null)
+                        continue;
+
                     var state = saveable.CaptureState();
                     enemyList.Add(new EnemySaveData
                     {

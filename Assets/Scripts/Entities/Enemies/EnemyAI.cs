@@ -89,10 +89,15 @@ namespace Scripts.AI
             _agent = GetComponent<NavMeshAgent>();
             _healthController = GetComponent<HealthController>();
 
-            // Генерируем SaveId автоматически, если не установлен
+            // Генерируем детерминированный ID на основе позиции спавна, если не задан вручную.
+            // Позиция умножается на 10 и округляется — допускает расхождение до 0.1 юнита.
+            // Формат: enemy-meleewalk-50x00x80 (только [a-z0-9-], проходит валидацию PocketBase)
             if (string.IsNullOrEmpty(SaveId))
             {
-                SaveId = $"{GetType().Name}_{GetHashCode()}";
+                int px = Mathf.RoundToInt(transform.position.x * 10);
+                int py = Mathf.RoundToInt(transform.position.y * 10);
+                int pz = Mathf.RoundToInt(transform.position.z * 10);
+                SaveId = $"enemy-{GetType().Name.ToLower()}-{px}x{py}x{pz}";
             }
 
             // Отключаем ИИ при смерти (Слушаем событие от HealthController)
