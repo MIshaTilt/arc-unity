@@ -1,11 +1,16 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement; // Добавлено для работы со сценами
+using UnityEngine.SceneManagement;
 using Scripts.Services;
 using Scripts.AI;
-using Scripts.MVC; // Добавлено для доступа к HealthController
-using Scripts.Architecture; // Для Service Locator
+using Scripts.MVC;
+using Scripts.Architecture;
 using Scripts.UI.PauseMenu;
+using Scripts.Save;
+using Scripts.Save.DTO;
+using Scripts.Save.Repository;
+using Scripts.Save.Interactor;
 
 namespace Scripts
 {
@@ -13,64 +18,106 @@ namespace Scripts
     {
         [Header("Global Settings")]
         [SerializeField] private InputActionAsset _inputAsset;
-        
+
         [Header("Scene References")]
         [SerializeField] private PlayerMovement _playerMovement;
         [SerializeField] private PlayerAttacks _playerAttacks;
         [SerializeField] private EnemyAI[] _enemiesOnScene;
-        [Header("UI")][SerializeField] private PauseMenuView _pauseView; 
+        [SerializeField] private string[] _enemySaveIds; // ID врагов для сохранения (задаётся в инспекторе)
+
+        [Header("UI")]
+        [SerializeField] private PauseMenuView _pauseView;
+
+        [Header("Save Settings")]
+        [SerializeField] private bool _usePocketBase = false; // Переключатель: PocketBase или заглушка
+        [SerializeField] private PocketBaseConfig _pocketBaseConfig;
 
         private StandaloneInputService _inputService;
         private PauseMenuController _pauseController;
+        private ISaveService _saveService;
 
         private void Awake()
         {
             // 1. Инициализация сервисов
             _inputService = new StandaloneInputService(_inputAsset);
 
-            // 2. Внедрение зависимостей
+            // 2. Инициализация системы сохранения
+            InitializeSaveSystem();
+
+            // 3. Внедрение зависимостей
             _playerMovement.Construct(_inputService);
             _playerAttacks.Construct(_inputService);
+            _playerMovement.SetPlayerAttacks(_playerAttacks); // Для чтения кулдаунов
 
-            // 3. Раздаем цели врагам
-            foreach (var enemy in _enemiesOnScene)
+            // 4. Раздаем цели врагам и назначаем ID для сохранения
+            for (int i = 0; i < _enemiesOnScene.Length; i++)
             {
+                var enemy = _enemiesOnScene[i];
                 if (enemy != null)
                 {
                     enemy.Construct(_playerMovement.transform);
+
+                    // Назначаем ID для сохранения (из инспектора или авто-генерация)
+                    if (i < _enemySaveIds.Length && !string.IsNullOrEmpty(_enemySaveIds[i]))
+                    {
+                        enemy.SetSaveId(_enemySaveIds[i]);
+                    }
                 }
             }
 
-            // 4. Подписываемся на смерть игрока для перезагрузки сцены
+            // 5. Подписываемся на смерть игрока
             HealthController playerHealth = _playerMovement.GetComponent<HealthController>();
             if (playerHealth != null)
             {
-                // Слушаем событие смерти из HealthController
                 playerHealth.OnDeathEvent.AddListener(OnPlayerDied);
             }
+        }
+
+        /// <summary>
+        /// Инициализирует систему сохранения: репозиторий → интерактор → сервис.
+        /// </summary>
+        private void InitializeSaveSystem()
+        {
+            // Собираем все IEntitySaveable на сцене
+            var saveableEntities = new List<IEntitySaveable>();
+            foreach (var enemy in _enemiesOnScene)
+            {
+                if (enemy != null)
+                    saveableEntities.Add(enemy);
+            }
+
+            IEntitySaveable playerSaveable = _playerMovement;
+
+            if (_usePocketBase)
+            {
+                // PocketBase: репозиторий → интерактор → сервис
+                var config = _pocketBaseConfig ?? new PocketBaseConfig();
+                var repository = new PocketBaseRepository<GameSaveData>(config);
+                var interactor = new SaveLoadInteractor(repository, saveableEntities, playerSaveable);
+                _saveService = new PocketBaseSaveService(interactor);
+
+                Debug.Log($"[GameBootstrapper] Используется PocketBase: {config.BaseUrl}");
+            }
+            else
+            {
+                // Заглушка для разработки без сервера
+                _saveService = new PlayerPrefsSaveService();
+                Debug.Log("[GameBootstrapper] Используется заглушка сохранения.");
+            }
+
+            // Регистрируем в ServiceLocator
+            ServiceLocator.Register<ISaveService>(_saveService);
         }
 
         // Для инициализации паузы
         private void Start()
         {
-            // Получаем сервис сохранений из глобального локатора
-            ISaveService saveService = ServiceLocator.Get<ISaveService>();
-
             // Собираем MVC для паузы
-            _pauseController = new PauseMenuController(_pauseView, saveService);
+            _pauseController = new PauseMenuController(_pauseView, _saveService);
 
             // Подписываемся на ввод
             _inputService.OnPauseToggle += _pauseController.TogglePause;
         }
-
-        // // Для прослушивания кнопки Esc для старой инпут систем
-        // private void Update()
-        // {
-        //     if (Input.GetKeyDown(KeyCode.Escape))
-        //     {
-        //         _pauseController?.TogglePause();
-        //     }
-        // }
 
         private void OnPlayerDied()
         {
@@ -84,7 +131,6 @@ namespace Scripts
 
         private void OnDestroy()
         {
-            // Отписываемся от события при уничтожении объекта
             if (_inputService != null && _pauseController != null)
             {
                 _inputService.OnPauseToggle -= _pauseController.TogglePause;

@@ -31,12 +31,27 @@ namespace Scripts
         private bool _isPhysicalReady => _physicalCooldownTimer <= 0f;
         private bool _isMagicReady => _magicCooldownTimer <= 0f;
 
+        /// <summary>
+        /// Публичный доступ к таймерам кулдаунов (для сохранения).
+        /// </summary>
+        public float PhysicalCooldownTimer => _physicalCooldownTimer;
+        public float MagicCooldownTimer => _magicCooldownTimer;
+
         // DI Внедрение
         public void Construct(IInputService inputService)
         {
             _inputService = inputService;
             _inputService.OnPhysicalAttack += OnPhysicalAttack;
             _inputService.OnMagicAttack += OnMagicAttack;
+        }
+
+        /// <summary>
+        /// Устанавливает таймеры кулдаунов (для загрузки из сохранения).
+        /// </summary>
+        public void SetCooldowns(float physicalTimer, float magicTimer)
+        {
+            _physicalCooldownTimer = physicalTimer;
+            _magicCooldownTimer = magicTimer;
         }
 
         private void Awake()
@@ -124,7 +139,7 @@ namespace Scripts
                  targetRigidbody.AddForceAtPosition(pushDirection * (isMagic ? 10f : 5f), point, ForceMode.Impulse);
              }
         }
-        
+
         private void ApplyAreaDamage(Vector3 center, float damage, float radius)
         {
             Collider[] hitColliders = Physics.OverlapSphere(center, radius, _targetLayerMask);
