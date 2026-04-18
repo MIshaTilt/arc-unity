@@ -7,7 +7,7 @@ using Scripts.Save.DTO;
 
 namespace Scripts
 {
-    public class PlayerMovement : MonoBehaviour, IEntitySaveable
+    public class PlayerMovement : MonoBehaviour, IPlayerSaveable 
     {
         [Header("Movement Settings")]
         [SerializeField] private float _moveSpeed = 5f;
@@ -35,67 +35,48 @@ namespace Scripts
         private float _currentXRotation;
         private bool _isGrounded;
 
-        #region IEntitySaveable
+        #region IPlayerSaveable
 
-        public string SaveId => "player";
-        public string EntityType => "Player";
+        public PlayerPositionData CapturePosition()
+        {
+            return new PlayerPositionData
+            {
+                positionX = transform.position.x,
+                positionY = transform.position.y,
+                positionZ = transform.position.z,
+                rotationY = transform.eulerAngles.y
+            };
+        }
 
-        /// <summary>
-        /// Сериализовать состояние игрока (позиция + данные из extraData).
-        /// </summary>
-        public EntitySaveData CaptureState()
+        public PlayerStateData CaptureState()
         {
             var healthCtrl = GetComponent<HealthController>();
-            float currentHealth = healthCtrl != null ? healthCtrl.CurrentHealth : 100f;
-            float maxHealth = healthCtrl != null ? healthCtrl.MaxHealth : 100f;
-
-            var stateData = new PlayerStateData
+            return new PlayerStateData
             {
-                currentHealth = currentHealth,
-                maxHealth = maxHealth,
+                currentHealth = healthCtrl != null ? healthCtrl.CurrentHealth : 100f,
+                maxHealth = healthCtrl != null ? healthCtrl.MaxHealth : 100f,
                 isDead = healthCtrl != null && healthCtrl.IsDead,
                 physicalCooldownTimer = _playerAttacks != null ? _playerAttacks.PhysicalCooldownTimer : 0f,
                 magicCooldownTimer = _playerAttacks != null ? _playerAttacks.MagicCooldownTimer : 0f
             };
-
-            return new EntitySaveData
-            {
-                id = SaveId,
-                entityType = EntityType,
-                positionX = transform.position.x,
-                positionY = transform.position.y,
-                positionZ = transform.position.z,
-                rotationY = transform.eulerAngles.y,
-                currentHealth = currentHealth,
-                maxHealth = maxHealth,
-                isAlive = healthCtrl != null && !healthCtrl.IsDead,
-                extraData = JsonUtility.ToJson(stateData)
-            };
         }
 
-        /// <summary>
-        /// Восстановить состояние игрока из сохранения.
-        /// </summary>
-        public void RestoreState(EntitySaveData data)
+        public void RestoreState(PlayerPositionData posData, PlayerStateData stateData)
         {
-            // Восстанавливаем позицию
-            transform.position = new Vector3(data.positionX, data.positionY, data.positionZ);
-            transform.rotation = Quaternion.Euler(0f, data.rotationY, 0f);
-
-            // Сбрасываем целевые углы камеры
-            _targetYRotation = data.rotationY;
-            _currentYRotation = data.rotationY;
-
-            // Восстанавливаем здоровье и состояние из extraData
-            var healthCtrl = GetComponent<HealthController>();
-            if (healthCtrl != null)
+            if (posData != null)
             {
-                // Сначала парсим extraData чтобы получить full state
-                if (!string.IsNullOrEmpty(data.extraData))
+                transform.position = new Vector3(posData.positionX, posData.positionY, posData.positionZ);
+                transform.rotation = Quaternion.Euler(0f, posData.rotationY, 0f);
+                
+                _targetYRotation = posData.rotationY;
+                _currentYRotation = posData.rotationY;
+            }
+
+            if (stateData != null)
+            {
+                var healthCtrl = GetComponent<HealthController>();
+                if (healthCtrl != null)
                 {
-                    var stateData = JsonUtility.FromJson<PlayerStateData>(data.extraData);
-                    
-                    // Если игрок был мёртв — воскрешаем с полным HP
                     if (stateData.isDead)
                     {
                         healthCtrl.SetHealth(stateData.maxHealth);
@@ -106,18 +87,11 @@ namespace Scripts
                         healthCtrl.SetHealth(stateData.currentHealth);
                     }
                 }
-                else
-                {
-                    // Fallback: используем данные из entity
-                    healthCtrl.SetHealth(data.currentHealth);
-                }
-            }
 
-            // Восстанавливаем кулдауны
-            if (_playerAttacks != null && !string.IsNullOrEmpty(data.extraData))
-            {
-                var stateData = JsonUtility.FromJson<PlayerStateData>(data.extraData);
-                _playerAttacks.SetCooldowns(stateData.physicalCooldownTimer, stateData.magicCooldownTimer);
+                if (_playerAttacks != null)
+                {
+                    _playerAttacks.SetCooldowns(stateData.physicalCooldownTimer, stateData.magicCooldownTimer);
+                }
             }
 
             Debug.Log("[PlayerMovement] Состояние игрока восстановлено.");

@@ -11,6 +11,7 @@ using Scripts.Save;
 using Scripts.Save.DTO;
 using Scripts.Save.Repository;
 using Scripts.Save.Interactor;
+using Scripts.Save.Domain; 
 
 namespace Scripts
 {
@@ -78,7 +79,6 @@ namespace Scripts
         /// </summary>
         private void InitializeSaveSystem()
         {
-            // Собираем все IEntitySaveable на сцене
             var saveableEntities = new List<IEntitySaveable>();
             foreach (var enemy in _enemiesOnScene)
             {
@@ -86,28 +86,35 @@ namespace Scripts
                     saveableEntities.Add(enemy);
             }
 
-            IEntitySaveable playerSaveable = _playerMovement;
+            IPlayerSaveable playerSaveable = _playerMovement;
 
             if (_usePocketBase)
             {
-                // PocketBase: репозиторий → интерактор → сервис
                 var config = _pocketBaseConfig ?? new PocketBaseConfig();
-                var repository = new PocketBaseRepository<GameSaveData>(config);
-                var interactor = new SaveLoadInteractor(repository, saveableEntities, playerSaveable);
-                _saveService = new PocketBaseSaveService(interactor);
+                
+                // 1. Создаем адаптер базы данных
+                IGameSaveRepository repository = new PocketBaseGameSaveRepository(config);
+                
+                // 2. Создаем два раздельных интерактора
+                var saveInteractor = new SaveInteractor(repository, saveableEntities, playerSaveable);
+                var loadInteractor = new LoadInteractor(repository, saveableEntities, playerSaveable);
+                
+                // 3. Внедряем их в сервис
+                _saveService = new PocketBaseSaveService(saveInteractor, loadInteractor);
 
                 Debug.Log($"[GameBootstrapper] Используется PocketBase: {config.BaseUrl}");
             }
             else
             {
-                // Заглушка для разработки без сервера
                 _saveService = new PlayerPrefsSaveService();
                 Debug.Log("[GameBootstrapper] Используется заглушка сохранения.");
             }
 
-            // Регистрируем в ServiceLocator
             ServiceLocator.Register<ISaveService>(_saveService);
         }
+
+
+
 
         // Для инициализации паузы
         private void Start()
