@@ -19,7 +19,7 @@ namespace Scripts.Services
         /// <summary>
         /// Загрузить указанное сохранение.
         /// </summary>
-        Task<GameSaveData> LoadGameAsync(string saveId);
+        Task<bool> LoadGameAsync(string saveId);
 
         /// <summary>
         /// Получить ID последнего сохранения (для быстрой загрузки).
@@ -47,42 +47,56 @@ namespace Scripts.Services
     /// </summary>
     public class PocketBaseSaveService : ISaveService
     {
-        private readonly Save.Interactor.ISaveLoadInteractor _interactor;
-        // PocketBase: id = min 15, max 20 символов, только [a-z0-9-]
-        private string _defaultSaveId = "save-quicksave-01";
+        // Теперь сервис зависит от двух разных сценариев
+        private readonly Save.Interactor.ISaveInteractor _saveInteractor;
+        private readonly Save.Interactor.ILoadInteractor _loadInteractor;
+        
+        private string _defaultSaveId = "savequicksave01";
 
         public event Action<bool> OnSaveCompleted;
         public event Action<bool> OnLoadCompleted;
 
-        public PocketBaseSaveService(Save.Interactor.ISaveLoadInteractor interactor)
+        public PocketBaseSaveService(
+            Save.Interactor.ISaveInteractor saveInteractor, 
+            Save.Interactor.ILoadInteractor loadInteractor)
         {
-            _interactor = interactor;
+            _saveInteractor = saveInteractor;
+            _loadInteractor = loadInteractor;
         }
 
         public async Task<bool> SaveGameAsync()
         {
-            Debug.Log("[PocketBaseSaveService] Сохранение игры...");
-            var saveData = new GameSaveData { id = _defaultSaveId };
-            bool result = await _interactor.SaveGameAsync(saveData);
-            OnSaveCompleted?.Invoke(result);
-            return result;
+            Debug.Log("[PocketBaseSaveService] Инициируем сохранение...");
+            
+            var request = new Save.Interactor.SaveGameRequest { SaveId = _defaultSaveId };
+            var response = await _saveInteractor.ExecuteAsync(request);
+            
+            Debug.Log($"[PocketBaseSaveService] Результат: {response.Message}");
+            
+            OnSaveCompleted?.Invoke(response.Success);
+            return response.Success;
         }
 
-        public async Task<GameSaveData> LoadGameAsync(string saveId)
+
+        public async Task<bool> LoadGameAsync(string saveId)
         {
-            Debug.Log($"[PocketBaseSaveService] Загрузка игры: {saveId}");
-            GameSaveData result = await _interactor.LoadGameAsync(saveId);
-            OnLoadCompleted?.Invoke(result != null);
-            return result;
+            Debug.Log($"[PocketBaseSaveService] Инициируем загрузку: {saveId}");
+            
+            var request = new Save.Interactor.LoadGameRequest { SaveId = saveId };
+            var response = await _loadInteractor.ExecuteAsync(request);
+            
+            Debug.Log($"[PocketBaseSaveService] Результат: {response.Message}");
+            
+            OnLoadCompleted?.Invoke(response.Success);
+            return response.Success;
         }
+
 
         public string GetLastSaveId() => _defaultSaveId;
         public void SetDefaultSaveId(string saveId) => _defaultSaveId = saveId;
     }
 
-    /// <summary>
-    /// Заглушка для тестирования без сервера.
-    /// </summary>
+
     public class PlayerPrefsSaveService : ISaveService
     {
         public event Action<bool> OnSaveCompleted;
@@ -95,14 +109,17 @@ namespace Scripts.Services
             return Task.FromResult(true);
         }
 
-        public Task<GameSaveData> LoadGameAsync(string saveId)
+        // ВАЖНО: Изменился тип возвращаемого значения с Task<GameSaveData> на Task<bool>
+        public Task<bool> LoadGameAsync(string saveId)
         {
             Debug.Log($"[PlayerPrefsSaveService] Загрузка (заглушка): {saveId}");
             OnLoadCompleted?.Invoke(false);
-            return Task.FromResult<GameSaveData>(null);
+            return Task.FromResult(false); // Возвращаем false (означает "не загружено")
         }
 
         public string GetLastSaveId() => "quicksave";
         public void SetDefaultSaveId(string saveId) { }
     }
+
+
 }
