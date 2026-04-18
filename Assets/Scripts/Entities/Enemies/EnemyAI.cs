@@ -1,23 +1,31 @@
-// EnemyAI.cs (Базовый скрипт, заменяет MeleeWalk и RangedWalk, устраняя дублирование)
 using UnityEngine;
 using UnityEngine.AI;
 using Scripts.MVC;
 using Scripts.Save;
+using Scripts.AI.StateMachine;
 
 namespace Scripts.AI
-{
-    [RequireComponent(typeof(NavMeshAgent), typeof(HealthController))]
+    {[RequireComponent(typeof(NavMeshAgent), typeof(HealthController))]
     public abstract class EnemyAI : MonoBehaviour, IEntitySaveable
     {
-        [SerializeField] protected float _detectionRange = 10f;
-        [SerializeField] protected float _attackCooldown = 1f;
-        [SerializeField] protected Animator _animator;
+        [Header("AI Settings")]
+        public float DetectionRange = 10f;
+        public float AttackRange = 2f;
+        public float AttackCooldown = 1f;
+        public float FleeHealthThreshold = 20f; // ХП, при котором убегает
+        
+        [Header("Peaceful Mode")]
+        public bool IsPeacefulMode = false; // Мирный режим
 
-        protected NavMeshAgent _agent;
-        protected Transform _target;
-        protected HealthController _healthController;
-        protected float _lastAttackTime;
-        protected bool _isAttacking;
+        public Animator Animator;
+        
+        public NavMeshAgent Agent { get; private set; }
+        public Transform Target { get; private set; }
+        public HealthController Health { get; private set; }
+        
+        public EnemyStateMachine StateMachine { get; protected set; }
+
+        public float LastAttackTime { get; set; }
 
         #region IEntitySaveable
 
@@ -29,9 +37,9 @@ namespace Scripts.AI
 
         public EntitySaveData CaptureState()
         {
-            float currentHealth = _healthController != null ? _healthController.CurrentHealth : 0f;
-            float maxHealth = _healthController != null ? _healthController.MaxHealth : 100f;
-            bool isAlive = _healthController != null && !_healthController.IsDead;
+            float currentHealth = Health != null ? Health.CurrentHealth : 0f;
+            float maxHealth = Health != null ? Health.MaxHealth : 100f;
+            bool isAlive = Health != null && !Health.IsDead;
 
             return new EntitySaveData
             {
@@ -54,9 +62,9 @@ namespace Scripts.AI
             transform.rotation = Quaternion.Euler(0f, data.rotationY, 0f);
 
             // Восстанавливаем здоровье
-            if (_healthController != null)
+            if (Health != null)
             {
-                _healthController.SetHealth(data.currentHealth);
+                Health.SetHealth(data.currentHealth);
             }
 
             // Если враг мёртв — отключаем объект
@@ -68,55 +76,54 @@ namespace Scripts.AI
             Debug.Log($"[EnemyAI] Враг {SaveId} восстановлен. HP: {data.currentHealth}/{data.maxHealth}");
         }
 
-        #endregion
-
-        public void Construct(Transform target)
-        {
-            _target = target; // Цель передается извне
-        }
-
-        /// <summary>
-        /// Устанавливает уникальный ID для сохранения.
-        /// Вызывается из GameBootstrapper при инициализации.
-        /// </summary>
         public void SetSaveId(string id)
         {
             SaveId = id;
         }
 
+        #endregion
+
+        public void Construct(Transform target)
+        {
+            Target = target;
+        }
+
         protected virtual void Awake()
         {
-            _agent = GetComponent<NavMeshAgent>();
-            _healthController = GetComponent<HealthController>();
+            Agent = GetComponent<NavMeshAgent>();
+            Health = GetComponent<HealthController>();
 
-            // Генерируем детерминированный ID на основе позиции спавна, если не задан вручную.
-            // Позиция умножается на 10 и округляется — допускает расхождение до 0.1 юнита.
-            // Формат: enemy-meleewalk-50x00x80 (только [a-z0-9-], проходит валидацию PocketBase)
-            if (string.IsNullOrEmpty(SaveId))
-            {
-                int px = Mathf.RoundToInt(transform.position.x * 10);
-                int py = Mathf.RoundToInt(transform.position.y * 10);
-                int pz = Mathf.RoundToInt(transform.position.z * 10);
-                SaveId = $"enemy-{GetType().Name.ToLower()}-{px}x{py}x{pz}";
-            }
+            if (string.IsNullOrEmpty(SaveId)) SaveId = $"enemy-{GetType().Name.ToLower()}-{Mathf.RoundToInt(transform.position.x * 10)}";
 
-            // Отключаем ИИ при смерти (Слушаем событие от HealthController)
-            _healthController.OnDeathEvent.AddListener(OnDeath);
+            Health.OnDeathEvent.AddListener(OnDeath);
+            if (Animator != null) Animator.applyRootMotion = false;
 
-            if (_animator != null) _animator.applyRootMotion = false;
+            StateMachine = new EnemyStateMachine();
+        }
+
+        protected virtual void Start()
+        {
+            // Наследники здесь будут инициализировать свои состояния
         }
 
         protected virtual void Update()
         {
-            if (_healthController.IsDead || _target == null) return;
-            ExecuteBehavior();
+            if (Health.IsDead || Target == null) return;
+            
+            // Делегируем работу текущему состоянию
+            StateMachine.CurrentState?.LogicUpdate();
         }
 
-        protected abstract void ExecuteBehavior();
-
-        protected void OnDeath()
+        protected virtual void FixedUpdate()
         {
-            _agent.isStopped = true;
+            if (Health.IsDead || Target == null) return;
+            StateMachine.CurrentState?.PhysicsUpdate();
+        }
+
+        protected virtual void OnDeath()
+        {
+            Agent.isStopped = true;
+            // Переводим в состояние смерти, если оно есть
             Destroy(gameObject, 7f);
         }
     }

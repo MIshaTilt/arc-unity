@@ -3092,12 +3092,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d87df775739925469fd555e695caa7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RangedWalk
-  _detectionRange: 15
-  _attackCooldown: 2
-  _animator: {fileID: 332064914316833892}
-  _minAttackRange: 5
-  _maxAttackRange: 10
-  _fireballPrefab: {fileID: 3806039598199004532, guid: bd1386d4ee3726342be61ab90aefa917, type: 3}
+  DetectionRange: 10
+  AttackRange: 2
+  AttackCooldown: 1
+  FleeHealthThreshold: 20
+  IsPeacefulMode: 0
+  Animator: {fileID: 332064914316833892}
+  MinAttackRange: 5
+  MaxAttackRange: 10
+  FireballPrefab: {fileID: 3422937319845026422, guid: 900d7b89d0f03a34a86791a19a88f775, type: 3}
 --- !u!114 &6231096043844689016
 MonoBehaviour:
   m_ObjectHideFlags: 0

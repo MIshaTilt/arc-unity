@@ -2936,11 +2936,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e7bea725f85ad4fa4d94e0c1f11059, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MeleeWalk
-  _detectionRange: 10
-  _attackCooldown: 1
-  _animator: {fileID: 8155901289564929058}
-  _attackRange: 1
-  _attackDamage: 5
+  DetectionRange: 10
+  AttackRange: 2
+  AttackCooldown: 1
+  FleeHealthThreshold: 20
+  IsPeacefulMode: 0
+  Animator: {fileID: 8155901289564929058}
 --- !u!114 &7229541008641280939
 MonoBehaviour:
   m_ObjectHideFlags: 0
