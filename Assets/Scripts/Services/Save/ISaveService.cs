@@ -51,7 +51,7 @@ namespace Scripts.Services
         private readonly Save.Interactor.ISaveInteractor _saveInteractor;
         private readonly Save.Interactor.ILoadInteractor _loadInteractor;
         
-        private string _defaultSaveId = "save-quicksave-01";
+        private string _defaultSaveId = "savequicksave01";
 
         public event Action<bool> OnSaveCompleted;
         public event Action<bool> OnLoadCompleted;

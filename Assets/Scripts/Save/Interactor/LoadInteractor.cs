@@ -13,16 +13,23 @@ namespace Scripts.Save.Interactor
 
     public class LoadInteractor : ILoadInteractor
     {
-        private readonly IGameSaveRepository _repository;
+        private readonly IGameMetaRepository _metaRepository;
+        private readonly IPlayerRepository _playerRepository;
+        private readonly IEnemyRepository _enemyRepository;
+
         private readonly IEnumerable<IEntitySaveable> _saveableEntities;
         private readonly IPlayerSaveable _playerSaveable;
 
         public LoadInteractor(
-            IGameSaveRepository repository,
+            IGameMetaRepository metaRepository,
+            IPlayerRepository playerRepository,
+            IEnemyRepository enemyRepository,
             IEnumerable<IEntitySaveable> saveableEntities,
             IPlayerSaveable playerSaveable)
         {
-            _repository = repository;
+            _metaRepository = metaRepository;
+            _playerRepository = playerRepository;
+            _enemyRepository = enemyRepository;
             _saveableEntities = saveableEntities;
             _playerSaveable = playerSaveable;
         }
@@ -31,29 +38,36 @@ namespace Scripts.Save.Interactor
         {
             try
             {
-                GameStateSnapshot snapshot = await _repository.LoadStateAsync(request.SaveId);
-                
-                if (snapshot == null) 
+                // Проверяем существование сохранения через мета-репозиторий
+                string sceneName = await _metaRepository.LoadSceneNameAsync(request.SaveId);
+                if (string.IsNullOrEmpty(sceneName))
                     return new LoadGameResponse { Success = false, Message = "Сохранение не найдено" };
 
+                // 1. Восстанавливаем игрока
                 if (_playerSaveable != null)
                 {
-                    _playerSaveable.RestoreState(snapshot.PlayerPosition, snapshot.PlayerState);
+                    var (pos, state) = await _playerRepository.LoadPlayerAsync(request.SaveId);
+                    if (pos != null && state != null)
+                        _playerSaveable.RestoreState(pos, state);
                 }
 
-                var saveableDict = new Dictionary<string, IEntitySaveable>();
-                foreach (var saveable in _saveableEntities) 
-                    saveableDict[saveable.SaveId] = saveable;
-
-                foreach (var enemyState in snapshot.Enemies)
+                // 2. Восстанавливаем врагов
+                var enemiesData = await _enemyRepository.LoadEnemiesAsync(request.SaveId);
+                if (enemiesData != null)
                 {
-                    if (saveableDict.TryGetValue(enemyState.id, out IEntitySaveable saveable))
+                    var saveableDict = new Dictionary<string, IEntitySaveable>();
+                    foreach (var saveable in _saveableEntities)
+                        saveableDict[saveable.SaveId] = saveable;
+
+                    foreach (var enemyState in enemiesData)
                     {
-                        saveable.RestoreState(enemyState);
+                        if (saveableDict.TryGetValue(enemyState.id, out IEntitySaveable saveable))
+                        {
+                            saveable.RestoreState(enemyState);
+                        }
                     }
                 }
 
-                // Возвращаем объект Response
                 return new LoadGameResponse { Success = true, Message = "Игра успешно загружена" };
             }
             catch (Exception ex)

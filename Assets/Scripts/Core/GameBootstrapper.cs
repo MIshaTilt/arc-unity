@@ -82,27 +82,34 @@ namespace Scripts
             var saveableEntities = new List<IEntitySaveable>();
             foreach (var enemy in _enemiesOnScene)
             {
-                if (enemy != null)
-                    saveableEntities.Add(enemy);
+                if (enemy != null) saveableEntities.Add(enemy);
             }
 
             IPlayerSaveable playerSaveable = _playerMovement;
 
             if (_usePocketBase)
             {
-                var config = _pocketBaseConfig ?? new PocketBaseConfig();
+                // Создаем конфиги для разных коллекций (у PocketBaseRepository один конфиг на инстанс)
+                var metaConfig = JsonUtility.FromJson<PocketBaseConfig>(JsonUtility.ToJson(_pocketBaseConfig));
+                var playerConfig = JsonUtility.FromJson<PocketBaseConfig>(JsonUtility.ToJson(_pocketBaseConfig));
+                var enemyConfig = JsonUtility.FromJson<PocketBaseConfig>(JsonUtility.ToJson(_pocketBaseConfig));
                 
-                // 1. Создаем адаптер базы данных
-                IGameSaveRepository repository = new PocketBaseGameSaveRepository(config);
+                // 1. Создаем гранулярные репозитории
+                IGameMetaRepository metaRepo = new PocketBaseMetaRepository(metaConfig);
+                IPlayerRepository playerRepo = new PocketBasePlayerRepository(playerConfig);
+                IEnemyRepository enemyRepo = new PocketBaseEnemyRepository(enemyConfig);
                 
-                // 2. Создаем два раздельных интерактора
-                var saveInteractor = new SaveInteractor(repository, saveableEntities, playerSaveable);
-                var loadInteractor = new LoadInteractor(repository, saveableEntities, playerSaveable);
+                // 2. Передаем их в оркестраторы (Интеракторы)
+                var saveInteractor = new SaveInteractor(
+                    metaRepo, playerRepo, enemyRepo, saveableEntities, playerSaveable);
+                    
+                var loadInteractor = new LoadInteractor(
+                    metaRepo, playerRepo, enemyRepo, saveableEntities, playerSaveable);
                 
-                // 3. Внедряем их в сервис
+                // 3. Сервис использует Интеракторы (Фасад для UI)
                 _saveService = new PocketBaseSaveService(saveInteractor, loadInteractor);
 
-                Debug.Log($"[GameBootstrapper] Используется PocketBase: {config.BaseUrl}");
+                Debug.Log($"[GameBootstrapper] Используется PocketBase: {_pocketBaseConfig.BaseUrl}");
             }
             else
             {
@@ -112,6 +119,7 @@ namespace Scripts
 
             ServiceLocator.Register<ISaveService>(_saveService);
         }
+
 
 
 

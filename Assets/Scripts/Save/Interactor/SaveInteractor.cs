@@ -14,16 +14,23 @@ namespace Scripts.Save.Interactor
 
     public class SaveInteractor : ISaveInteractor
     {
-        private readonly IGameSaveRepository _repository;
+        private readonly IGameMetaRepository _metaRepository;
+        private readonly IPlayerRepository _playerRepository;
+        private readonly IEnemyRepository _enemyRepository;
+        
         private readonly IEnumerable<IEntitySaveable> _saveableEntities;
         private readonly IPlayerSaveable _playerSaveable;
 
         public SaveInteractor(
-            IGameSaveRepository repository,
+            IGameMetaRepository metaRepository,
+            IPlayerRepository playerRepository,
+            IEnemyRepository enemyRepository,
             IEnumerable<IEntitySaveable> saveableEntities,
             IPlayerSaveable playerSaveable)
         {
-            _repository = repository;
+            _metaRepository = metaRepository;
+            _playerRepository = playerRepository;
+            _enemyRepository = enemyRepository;
             _saveableEntities = saveableEntities;
             _playerSaveable = playerSaveable;
         }
@@ -32,34 +39,30 @@ namespace Scripts.Save.Interactor
         {
             try
             {
-                var snapshot = new GameStateSnapshot
-                {
-                    SaveId = request.SaveId, // Данные берем из объекта Request
-                    SceneName = SceneManager.GetActiveScene().name
-                };
+                // 1. Сохраняем мету (Сцену)
+                string sceneName = SceneManager.GetActiveScene().name;
+                await _metaRepository.SaveMetaAsync(request.SaveId, sceneName);
 
+                // 2. Сохраняем игрока
                 if (_playerSaveable != null)
                 {
-                    snapshot.PlayerPosition = _playerSaveable.CapturePosition();
-                    snapshot.PlayerState = _playerSaveable.CaptureState();
+                    var playerPos = _playerSaveable.CapturePosition();
+                    var playerState = _playerSaveable.CaptureState();
+                    await _playerRepository.SavePlayerAsync(request.SaveId, playerPos, playerState);
                 }
 
+                // 3. Сохраняем врагов
+                var enemiesData = new List<EntitySaveData>();
                 foreach (var saveable in _saveableEntities)
                 {
                     if (saveable is UnityEngine.Object unityObj && unityObj != null)
                     {
-                        snapshot.Enemies.Add(saveable.CaptureState());
+                        enemiesData.Add(saveable.CaptureState());
                     }
                 }
+                await _enemyRepository.SaveEnemiesAsync(request.SaveId, enemiesData);
 
-                bool result = await _repository.SaveStateAsync(snapshot);
-                
-                // Возвращаем объект Response (как в лекции)
-                return new SaveGameResponse 
-                { 
-                    Success = result, 
-                    Message = result ? "Игра успешно сохранена" : "Ошибка записи в репозиторий" 
-                };
+                return new SaveGameResponse { Success = true, Message = "Игра успешно сохранена" };
             }
             catch (Exception ex)
             {
