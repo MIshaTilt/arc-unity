@@ -6,9 +6,14 @@ namespace Scripts.AI.States.Boss
     public class BossHeavyAttackState : EnemyState
     {
         private BossAI _boss;
-        private float _attackTimer = 2f;
+        private float _attackTimer;
+        private float _damageDelayTimer;
+        private bool _hasDamaged;
 
-        public BossHeavyAttackState(EnemyStateMachine sm, EnemyAI context) : base(sm, context) { _boss = context as BossAI; }
+        public BossHeavyAttackState(EnemyStateMachine sm, EnemyAI context) : base(sm, context) 
+        { 
+            _boss = context as BossAI; 
+        }
 
         public override void Enter()
         {
@@ -16,16 +21,43 @@ namespace Scripts.AI.States.Boss
             _boss.Animator?.SetFloat("AttackSpeed", _boss.AttackSpeedMultiplier);
             _boss.Animator?.SetTrigger("HeavyAttack");
             
-            _boss.Target.GetComponent<IDamageable>()?.TakeDamage(35f);
             _boss.LastHeavyAttackTime = Time.time;
+            _hasDamaged = false;
 
-            _attackTimer = 2.5f / _boss.AttackSpeedMultiplier;
+            _attackTimer = 4.25f / _boss.AttackSpeedMultiplier;
+            
+            _damageDelayTimer = 1.5f / _boss.AttackSpeedMultiplier;
         }
 
         public override void LogicUpdate()
         {
             _attackTimer -= Time.deltaTime;
-            if (_attackTimer <= 0) StateMachine.ChangeState(new BossRepositionState(StateMachine, _boss)); // После сильной атаки - отпрыгивает
+            _damageDelayTimer -= Time.deltaTime;
+
+            if (!_hasDamaged)
+            {
+                Vector3 lookDirection = _boss.Target.position - _boss.transform.position;
+                lookDirection.y = 0;
+                if (lookDirection != Vector3.zero)
+                {
+                    _boss.transform.rotation = Quaternion.Slerp(_boss.transform.rotation, Quaternion.LookRotation(lookDirection), Time.deltaTime * 3f);
+                }
+            }
+
+            if (!_hasDamaged && _damageDelayTimer <= 0)
+            {
+                _hasDamaged = true;
+
+                if (Vector3.Distance(_boss.transform.position, _boss.Target.position) <= _boss.HeavyAttackRange + 0.5f)
+                {
+                    _boss.Target.GetComponent<IDamageable>()?.TakeDamage(35f);
+                }
+            }
+
+            if (_attackTimer <= 0) 
+            {
+                StateMachine.ChangeState(new BossRepositionState(StateMachine, _boss)); 
+            }
         }
     }
 }
