@@ -43,7 +43,6 @@ namespace Scripts.UI.PauseMenu
             Debug.Log("[PauseMenuController] Запуск загрузки...");
             string saveId = _saveService.GetLastSaveId();
             var saveData = await _saveService.LoadGameAsync(saveId);
-            Debug.Log(saveData != null ? "[PauseMenuController] Загрузка успешна." : "[PauseMenuController] Сохранение не найдено!");
         }
 
         private void GoToMainMenu()

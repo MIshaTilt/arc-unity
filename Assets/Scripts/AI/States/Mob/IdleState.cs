@@ -10,6 +10,8 @@ namespace Scripts.AI.States.Mob
         public override void Enter()
         {
             Context.Agent.isStopped = true;
+            // Очищаем путь, чтобы моб не скользил по инерции
+            if (Context.Agent.isOnNavMesh) Context.Agent.ResetPath(); 
             Context.Animator?.SetFloat("Speed", 0f);
         }
 
@@ -17,8 +19,10 @@ namespace Scripts.AI.States.Mob
         {
             float distance = Vector3.Distance(Context.transform.position, Context.Target.position);
 
-            // Логика бегства (даже в мирном режиме, если мало ХП)
-            if (Context.Health.CurrentHealth <= Context.FleeHealthThreshold && Context.Health.CurrentHealth < Context.Health.MaxHealth)
+            // ИСПРАВЛЕНИЕ: Убегаем только если ХП мало И игрок подошел близко (например, ближе чем DetectionRange * 1.5f)
+            if (Context.Health.CurrentHealth <= Context.FleeHealthThreshold && 
+                Context.Health.CurrentHealth < Context.Health.MaxHealth && 
+                distance <= Context.DetectionRange * 1.5f)
             {
                 StateMachine.ChangeState(new FleeState(StateMachine, Context));
                 return;

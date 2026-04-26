@@ -49,7 +49,7 @@ namespace Scripts.AI.States.Boss
 
                 if (Vector3.Distance(_boss.transform.position, _boss.Target.position) <= _boss.AttackRange + 0.5f)
                 {
-                    _boss.Target.GetComponent<IDamageable>()?.TakeDamage(15f);
+                    _boss.CurrentMeleeAttack.ExecuteMelee(_boss.transform, _boss.Target);
                 }
             }
 

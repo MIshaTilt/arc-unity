@@ -29,9 +29,9 @@ namespace Scripts.AI.States.Ranged
                 return;
             }
 
-            // Поворачиваемся к игроку перед выстрелом (так как агент остановлен)
+            // Поворачиваемся к игроку перед выстрелом
             Vector3 lookDirection = Context.Target.position - Context.transform.position;
-            lookDirection.y = 0; // Игнорируем высоту
+            lookDirection.y = 0; 
             if (lookDirection != Vector3.zero)
             {
                 Context.transform.rotation = Quaternion.Slerp(Context.transform.rotation, Quaternion.LookRotation(lookDirection), Time.deltaTime * 5f);
@@ -40,10 +40,21 @@ namespace Scripts.AI.States.Ranged
             // Стреляем, если прошел кулдаун
             if (Time.time - Context.LastAttackTime >= Context.AttackCooldown)
             {
-                if (_ranged.FireballPrefab != null)
+                if (Context.CurrentWeapon != null && Context.CurrentWeapon.ProjectilePrefab != null)
                 {
+                    // Точка спавна: над игроком
                     Vector3 fireballPosition = Context.Target.position + Vector3.up * 2f;
-                    GameObject.Instantiate(_ranged.FireballPrefab, fireballPosition, Quaternion.identity);
+                    
+                    // Сохраняем ссылку на созданный объект
+                    GameObject projectileObj = GameObject.Instantiate(Context.CurrentWeapon.ProjectilePrefab, fireballPosition, Quaternion.identity);
+                    Debug.Log("Должен выстрелить");
+                    
+                    // Ищем наш скрипт снаряда и передаем ему урон из Scriptable Object
+                    MagicProjectile projectileScript = projectileObj.GetComponent<MagicProjectile>();
+                    if (projectileScript != null)
+                    {
+                        projectileScript.SetDamage(Context.CurrentWeapon.Damage);
+                    }
                 }
 
                 Context.Animator?.SetTrigger("Attack");

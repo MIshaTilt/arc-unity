@@ -1,6 +1,6 @@
 using UnityEngine;
 using Scripts.AI.StateMachine;
-using Scripts.AI.States.Mob; // Для доступа к FleeState
+using Scripts.AI.States.Mob; 
 
 namespace Scripts.AI.States.Ranged
 {
@@ -11,6 +11,7 @@ namespace Scripts.AI.States.Ranged
         public override void Enter()
         {
             Context.Agent.isStopped = true;
+            if (Context.Agent.isOnNavMesh) Context.Agent.ResetPath();
             Context.Animator?.SetFloat("Speed", 0f);
         }
 
@@ -18,8 +19,10 @@ namespace Scripts.AI.States.Ranged
         {
             float distance = Vector3.Distance(Context.transform.position, Context.Target.position);
 
-            // Если мало ХП - убегаем (переиспользуем FleeState от милишника)
-            if (Context.Health.CurrentHealth <= Context.FleeHealthThreshold && Context.Health.CurrentHealth < Context.Health.MaxHealth)
+            // ИСПРАВЛЕНИЕ: Дальник убегает только если игрок угрожающе близко
+            if (Context.Health.CurrentHealth <= Context.FleeHealthThreshold && 
+                Context.Health.CurrentHealth < Context.Health.MaxHealth && 
+                distance <= Context.DetectionRange * 1.5f)
             {
                 StateMachine.ChangeState(new FleeState(StateMachine, Context));
                 return;

@@ -1159,6 +1159,7 @@ Transform:
   - {fileID: 6087494021560622779}
   - {fileID: 7698479399614374012}
   - {fileID: 341629927998958366}
+  - {fileID: 1996810161930011527}
   m_Father: {fileID: 1945110574053359471}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3034421796121629317
@@ -1193,6 +1194,37 @@ Transform:
   - {fileID: 7318512308923742961}
   m_Father: {fileID: 5658650296915870256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3182250349211025612
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1996810161930011527}
+  m_Layer: 0
+  m_Name: WeaponSocket
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1996810161930011527
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3182250349211025612}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.000000092424955, y: -0.000000013229821, z: 0.5177937, w: 0.8555055}
+  m_LocalPosition: {x: 0.003, y: 0.145, z: 0.058}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7318512308923742961}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 62.369}
 --- !u!1 &3271076580531127180
 GameObject:
   m_ObjectHideFlags: 0
@@ -2942,6 +2974,10 @@ MonoBehaviour:
   FleeHealthThreshold: 20
   IsPeacefulMode: 0
   Animator: {fileID: 8155901289564929058}
+  WeaponSocket: {fileID: 1996810161930011527}
+  AvailableWeapons:
+  - {fileID: 11400000, guid: 77c882a774dc7ae499c7d72fdf5e732c, type: 2}
+  - {fileID: 11400000, guid: e1d02c062268d9c449da5705e0807c8a, type: 2}
 --- !u!114 &7229541008641280939
 MonoBehaviour:
   m_ObjectHideFlags: 0

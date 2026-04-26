@@ -55,7 +55,9 @@ namespace Scripts.AI.States.Mob
 
                         if (distance <= Context.AttackRange + 0.5f)
                         {
-                            Context.Target.GetComponent<IDamageable>()?.TakeDamage(10f);
+                            // БЕРЕМ УРОН ИЗ SCRIPTABLE OBJECT (с подстраховкой на 10f, если оружие не выдали)
+                            float damage = Context.CurrentWeapon != null ? Context.CurrentWeapon.Damage : 10f;
+                            Context.Target.GetComponent<IDamageable>()?.TakeDamage(damage);
                         }
                     }
                 }

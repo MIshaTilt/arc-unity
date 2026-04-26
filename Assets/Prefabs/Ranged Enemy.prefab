@@ -3100,7 +3100,9 @@ MonoBehaviour:
   Animator: {fileID: 332064914316833892}
   MinAttackRange: 5
   MaxAttackRange: 10
-  FireballPrefab: {fileID: 3422937319845026422, guid: 900d7b89d0f03a34a86791a19a88f775, type: 3}
+  AvailableWeapons:
+  - {fileID: 11400000, guid: 3b08e07599ed0864084e8d97c8e49705, type: 2}
+  - {fileID: 11400000, guid: a92165246b0f81a47808a8f737fb0097, type: 2}
 --- !u!114 &6231096043844689016
 MonoBehaviour:
   m_ObjectHideFlags: 0

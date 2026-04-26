@@ -3,6 +3,7 @@ using UnityEngine.AI;
 using Scripts.MVC;
 using Scripts.Save;
 using Scripts.AI.StateMachine;
+using Scripts.Configs;
 
 namespace Scripts.AI
     {[RequireComponent(typeof(NavMeshAgent), typeof(HealthController))]
@@ -24,6 +25,8 @@ namespace Scripts.AI
         public HealthController Health { get; private set; }
         
         public EnemyStateMachine StateMachine { get; protected set; }
+        public Transform WeaponSocket;
+        public WeaponConfigSO CurrentWeapon { get; protected set; }
 
         public float LastAttackTime { get; set; }
 
@@ -87,6 +90,20 @@ namespace Scripts.AI
         {
             Target = target;
         }
+
+        protected void EquipWeapon()
+        {
+            if (CurrentWeapon != null && CurrentWeapon.WeaponPrefab != null && WeaponSocket != null)
+            {
+                // Инстанцируем префаб оружия, делая кость руки его родителем
+                GameObject weaponObj = Instantiate(CurrentWeapon.WeaponPrefab, WeaponSocket);
+                
+                // Сбрасываем координаты, чтобы оружие встало ровно в центр кости
+                weaponObj.transform.localPosition = Vector3.zero;
+                weaponObj.transform.localRotation = Quaternion.identity;
+            }
+        }
+
 
         protected virtual void Awake()
         {

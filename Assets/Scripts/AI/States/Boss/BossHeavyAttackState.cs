@@ -50,7 +50,7 @@ namespace Scripts.AI.States.Boss
 
                 if (Vector3.Distance(_boss.transform.position, _boss.Target.position) <= _boss.HeavyAttackRange + 0.5f)
                 {
-                    _boss.Target.GetComponent<IDamageable>()?.TakeDamage(35f);
+                    _boss.CurrentHeavyAttack.ExecuteRanged(_boss.transform, _boss.Target);
                 }
             }
 
