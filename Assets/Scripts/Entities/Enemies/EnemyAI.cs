@@ -110,7 +110,10 @@ namespace Scripts.AI
             Agent = GetComponent<NavMeshAgent>();
             Health = GetComponent<HealthController>();
 
-            if (string.IsNullOrEmpty(SaveId)) SaveId = $"enemy-{GetType().Name.ToLower()}-{Mathf.RoundToInt(transform.position.x * 10)}";
+            if (string.IsNullOrEmpty(SaveId)) 
+            {
+                SaveId = System.Guid.NewGuid().ToString();
+            }
 
             Health.OnDeathEvent.AddListener(OnDeath);
             if (Animator != null) Animator.applyRootMotion = false;

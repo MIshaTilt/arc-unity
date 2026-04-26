@@ -1,4 +1,5 @@
 using System.Collections;
+using Scripts.AI;
 using UnityEngine;
 
 namespace Scripts.Spawners
@@ -12,11 +13,23 @@ namespace Scripts.Spawners
         [Header("Spawn Settings")]
         [SerializeField] protected float _spawnInterval = 15f; // Задержка между спавнами
 
-        private void Start()
+        public Transform Target { get; private set; }
+
+
+        public event System.Action<EnemyAI> OnEnemySpawned;
+
+        public void Initialize(Transform target)
         {
-            // Запускаем бесконечный цикл спавна
+            Target = target;
             StartCoroutine(SpawnRoutine());
         }
+
+        protected void TriggerSpawnEvent(EnemyAI enemy)
+        {
+            OnEnemySpawned?.Invoke(enemy);
+        }
+
+
 
         private IEnumerator SpawnRoutine()
         {
