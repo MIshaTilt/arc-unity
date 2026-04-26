@@ -6,21 +6,26 @@ namespace Scripts.UI.MainMenu
     public class MainMenuController
     {
         private readonly IAudioService _audioService;
+        private readonly IGameSessionService _sessionService; // НОВОЕ
 
-        // Внедрение зависимостей 
-        public MainMenuController(MainMenuView view, IAudioService audioService)
+        public MainMenuController(MainMenuView view, IAudioService audioService, IGameSessionService sessionService)
         {
             _audioService = audioService;
+            _sessionService = sessionService;
 
-            // Подписка на события вьюхи
-            view.OnPlayClicked += StartGame;
+            view.OnPlayClicked += () => StartGame(false);
+            view.OnPlayPeacefulClicked += () => StartGame(true);
+            
             view.OnVolumeChanged += ChangeVolume;
-
-            // Устанавливаем ползунок в актуальное положение
             view.SetVolumeSlider(_audioService.Volume);
         }
 
-        private void StartGame() => SceneManager.LoadScene("GameplayScene");
+        private void StartGame(bool isPeaceful)
+        {
+            _sessionService.IsPeacefulMode = isPeaceful;
+            SceneManager.LoadScene("GameplayScene");
+        }
+
         private void ChangeVolume(float volume) => _audioService.SetVolume(volume);
     }
 }

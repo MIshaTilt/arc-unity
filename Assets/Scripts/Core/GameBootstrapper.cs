@@ -60,6 +60,9 @@ namespace Scripts
             _inputService = new StandaloneInputService(_inputAsset);
             IAudioService audioService = ServiceLocator.Get<IAudioService>();
 
+            IGameSessionService sessionService = ServiceLocator.Get<IGameSessionService>();
+            bool isPeaceful = sessionService.IsPeacefulMode;
+
             _scoreSystem = new ScoreSystem();
 
             if (_scoreboardView != null) 
@@ -78,7 +81,7 @@ namespace Scripts
 
             // Инициализация системы сохранения
 
-            _enemyRegistry = new EnemyRegistry(_playerMovement.transform, _meleePrefab, _rangedPrefab);
+            _enemyRegistry = new EnemyRegistry(_playerMovement.transform, _meleePrefab, _rangedPrefab, isPeaceful);
 
             // КЛЮЧЕВАЯ СВЯЗЬ: Любой зарегистрированный враг (спавн или загрузка) подписывается на очки
             _enemyRegistry.OnEnemyRegistered += (enemy) => 

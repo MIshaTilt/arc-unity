@@ -14,15 +14,17 @@ namespace Scripts.Systems.Enemies
         private readonly Transform _playerTransform;
         private readonly GameObject _meleePrefab;
         private readonly GameObject _rangedPrefab;
+        private readonly bool _isPeacefulMode;
 
         // Событие, которое сработает при регистрации ЛЮБОГО врага (спавн или загрузка)
         public event Action<EnemyAI> OnEnemyRegistered;
 
-        public EnemyRegistry(Transform playerTransform, GameObject meleePrefab, GameObject rangedPrefab)
+        public EnemyRegistry(Transform playerTransform, GameObject meleePrefab, GameObject rangedPrefab, bool isPeacefulMode)
         {
             _playerTransform = playerTransform;
             _meleePrefab = meleePrefab;
             _rangedPrefab = rangedPrefab;
+            _isPeacefulMode = isPeacefulMode;
         }
 
         public IReadOnlyList<EnemyAI> GetActiveEnemies() => _activeEnemies;
@@ -31,6 +33,8 @@ namespace Scripts.Systems.Enemies
         {
             if (!_activeEnemies.Contains(enemy))
             {
+                enemy.IsPeacefulMode = _isPeacefulMode; 
+
                 _activeEnemies.Add(enemy);
                 
                 // Автоматически вычеркиваем из списка при смерти
