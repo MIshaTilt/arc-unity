@@ -12,6 +12,12 @@ using Scripts.Save.DTO;
 using Scripts.Save.Repository;
 using Scripts.Save.Interactor;
 using Scripts.Save.Domain; 
+using Scripts.Systems.Score;
+using Scripts.UI.Score;
+using Scripts.Systems.Rules;  
+using Scripts.Systems.Enemies;
+using Scripts.Spawners;
+
 
 namespace Scripts
 {
@@ -23,8 +29,11 @@ namespace Scripts
         [Header("Scene References")]
         [SerializeField] private PlayerMovement _playerMovement;
         [SerializeField] private PlayerAttacks _playerAttacks;
-        [SerializeField] private EnemyAI[] _enemiesOnScene;
-        [SerializeField] private string[] _enemySaveIds; // ID врагов для сохранения (задаётся в инспекторе)
+
+        [Header("Spawners & Enemy Data")]
+        [SerializeField] private EnemySpawner[] _sceneSpawners;
+        [SerializeField] private GameObject _meleePrefab;
+        [SerializeField] private GameObject _rangedPrefab;
 
         [Header("UI")]
         [SerializeField] private PauseMenuView _pauseView;
@@ -33,40 +42,84 @@ namespace Scripts
         [SerializeField] private bool _usePocketBase = false; // Переключатель: PocketBase или заглушка
         [SerializeField] private PocketBaseConfig _pocketBaseConfig;
 
+        [Header("Event System & Rules")]
+        [SerializeField] private ScoreboardView _scoreboardView;[SerializeField] private GameObject _bossPrefab;
+        [SerializeField] private Transform _bossSpawnPoint;[SerializeField] private AudioClip _victoryMusic;
+
         private StandaloneInputService _inputService;
         private PauseMenuController _pauseController;
         private ISaveService _saveService;
+        private ScoreSystem _scoreSystem;
+        private GameRulesController _gameRulesController;
+        private EnemyRegistry _enemyRegistry;
 
+        [System.Obsolete]
         private void Awake()
         {
-            // 1. Инициализация сервисов
+            // Инициализация сервисов
             _inputService = new StandaloneInputService(_inputAsset);
+            IAudioService audioService = ServiceLocator.Get<IAudioService>();
 
-            // 2. Инициализация системы сохранения
-            InitializeSaveSystem();
+            IGameSessionService sessionService = ServiceLocator.Get<IGameSessionService>();
+            bool isPeaceful = sessionService.IsPeacefulMode;
 
-            // 3. Внедрение зависимостей
-            _playerMovement.Construct(_inputService);
-            _playerAttacks.Construct(_inputService);
-            _playerMovement.SetPlayerAttacks(_playerAttacks); // Для чтения кулдаунов
+            _scoreSystem = new ScoreSystem();
 
-            // 4. Раздаем цели врагам и назначаем ID для сохранения
-            for (int i = 0; i < _enemiesOnScene.Length; i++)
+            if (_scoreboardView != null) 
+                _scoreboardView.Initialize(_scoreSystem);
+
+            // Создаем контроллер правил (Босс и Музыка)
+            _gameRulesController = new GameRulesController(
+                _scoreSystem, 
+                audioService, 
+                _victoryMusic, 
+                _bossPrefab, 
+                _bossSpawnPoint, 
+                _playerMovement.transform,
+                _enemyRegistry
+            );
+
+            // Инициализация системы сохранения
+
+            _enemyRegistry = new EnemyRegistry(_playerMovement.transform, _meleePrefab, _rangedPrefab, isPeaceful);
+
+            // КЛЮЧЕВАЯ СВЯЗЬ: Любой зарегистрированный враг (спавн или загрузка) подписывается на очки
+            _enemyRegistry.OnEnemyRegistered += (enemy) => 
             {
-                var enemy = _enemiesOnScene[i];
-                if (enemy != null)
+                HealthController health = enemy.GetComponent<HealthController>();
+                if (health != null)
                 {
-                    enemy.Construct(_playerMovement.transform);
+                    health.OnDeathEvent.AddListener(() => _scoreSystem.AddKill());
+                }
+            };
 
-                    // Назначаем ID для сохранения (из инспектора или авто-генерация)
-                    if (i < _enemySaveIds.Length && !string.IsNullOrEmpty(_enemySaveIds[i]))
-                    {
-                        enemy.SetSaveId(_enemySaveIds[i]);
-                    }
+            // 3. Собираем УЖЕ стоящих на сцене врагов (если есть)
+            var staticEnemies = FindObjectsOfType<EnemyAI>();
+            foreach(var enemy in staticEnemies)
+            {
+                enemy.Construct(_playerMovement.transform);
+                _enemyRegistry.Register(enemy);
+            }
+
+            // 4. Запускаем Спавнеры
+            foreach (var spawner in _sceneSpawners)
+            {
+                if (spawner != null)
+                {
+                    // Подписываем реестр на спавн новых врагов
+                    spawner.OnEnemySpawned += _enemyRegistry.Register;
+                    spawner.Initialize(_playerMovement.transform);
                 }
             }
 
-            // 5. Подписываемся на смерть игрока
+            // 5. Инициализация системы сохранения
+            InitializeSaveSystem();
+
+            _playerMovement.Construct(_inputService);
+            _playerAttacks.Construct(_inputService);
+            _playerMovement.SetPlayerAttacks(_playerAttacks);
+
+            // Подписываемся на смерть игрока
             HealthController playerHealth = _playerMovement.GetComponent<HealthController>();
             if (playerHealth != null)
             {
@@ -79,42 +132,30 @@ namespace Scripts
         /// </summary>
         private void InitializeSaveSystem()
         {
-            var saveableEntities = new List<IEntitySaveable>();
-            foreach (var enemy in _enemiesOnScene)
-            {
-                if (enemy != null) saveableEntities.Add(enemy);
-            }
-
             IPlayerSaveable playerSaveable = _playerMovement;
 
             if (_usePocketBase)
             {
-                // Создаем конфиги для разных коллекций (у PocketBaseRepository один конфиг на инстанс)
                 var metaConfig = JsonUtility.FromJson<PocketBaseConfig>(JsonUtility.ToJson(_pocketBaseConfig));
                 var playerConfig = JsonUtility.FromJson<PocketBaseConfig>(JsonUtility.ToJson(_pocketBaseConfig));
                 var enemyConfig = JsonUtility.FromJson<PocketBaseConfig>(JsonUtility.ToJson(_pocketBaseConfig));
                 
-                // 1. Создаем гранулярные репозитории
                 IGameMetaRepository metaRepo = new PocketBaseMetaRepository(metaConfig);
                 IPlayerRepository playerRepo = new PocketBasePlayerRepository(playerConfig);
                 IEnemyRepository enemyRepo = new PocketBaseEnemyRepository(enemyConfig);
                 
-                // 2. Передаем их в оркестраторы (Интеракторы)
                 var saveInteractor = new SaveInteractor(
-                    metaRepo, playerRepo, enemyRepo, saveableEntities, playerSaveable);
+                    metaRepo, playerRepo, enemyRepo, _enemyRegistry, playerSaveable, _scoreSystem);
                     
                 var loadInteractor = new LoadInteractor(
-                    metaRepo, playerRepo, enemyRepo, saveableEntities, playerSaveable);
-                
-                // 3. Сервис использует Интеракторы (Фасад для UI)
-                _saveService = new PocketBaseSaveService(saveInteractor, loadInteractor);
+                    metaRepo, playerRepo, enemyRepo, _enemyRegistry, playerSaveable, _scoreSystem);
 
-                Debug.Log($"[GameBootstrapper] Используется PocketBase: {_pocketBaseConfig.BaseUrl}");
+                
+                _saveService = new PocketBaseSaveService(saveInteractor, loadInteractor);
             }
             else
             {
                 _saveService = new PlayerPrefsSaveService();
-                Debug.Log("[GameBootstrapper] Используется заглушка сохранения.");
             }
 
             ServiceLocator.Register<ISaveService>(_saveService);
@@ -151,6 +192,7 @@ namespace Scripts
                 _inputService.OnPauseToggle -= _pauseController.TogglePause;
             }
             _inputService?.Dispose();
+            _gameRulesController?.Dispose();
         }
     }
 }

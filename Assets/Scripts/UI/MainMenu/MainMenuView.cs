@@ -12,6 +12,7 @@ namespace Scripts.UI.MainMenu
 
         [Header("Buttons")]
         [SerializeField] private Button _playButton;
+        [SerializeField] private Button _playPeacefulButton;
         [SerializeField] private Button _settingsButton;
         [SerializeField] private Button _backButton;       
         
@@ -19,11 +20,15 @@ namespace Scripts.UI.MainMenu
         [SerializeField] private Slider _volumeSlider;
 
         public event Action OnPlayClicked;
+        public event Action OnPlayPeacefulClicked;
         public event Action<float> OnVolumeChanged;
 
         private void Awake()
         {
             _playButton.onClick.AddListener(() => OnPlayClicked?.Invoke());
+
+            if (_playPeacefulButton != null)
+                _playPeacefulButton.onClick.AddListener(() => OnPlayPeacefulClicked?.Invoke());
 
             _settingsButton.onClick.AddListener(() => 
             {

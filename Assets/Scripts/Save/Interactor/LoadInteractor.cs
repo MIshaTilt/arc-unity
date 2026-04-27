@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Scripts.Save.Domain;
 using UnityEngine;
+using Scripts.Systems.Score;
 
 namespace Scripts.Save.Interactor
 {
@@ -17,21 +18,24 @@ namespace Scripts.Save.Interactor
         private readonly IPlayerRepository _playerRepository;
         private readonly IEnemyRepository _enemyRepository;
 
-        private readonly IEnumerable<IEntitySaveable> _saveableEntities;
+        private readonly Systems.Enemies.EnemyRegistry _enemyRegistry;
         private readonly IPlayerSaveable _playerSaveable;
+        private readonly ScoreSystem _scoreSystem;
 
         public LoadInteractor(
             IGameMetaRepository metaRepository,
             IPlayerRepository playerRepository,
             IEnemyRepository enemyRepository,
-            IEnumerable<IEntitySaveable> saveableEntities,
-            IPlayerSaveable playerSaveable)
+            Systems.Enemies.EnemyRegistry enemyRegistry,
+            IPlayerSaveable playerSaveable,
+            ScoreSystem scoreSystem)
         {
             _metaRepository = metaRepository;
             _playerRepository = playerRepository;
             _enemyRepository = enemyRepository;
-            _saveableEntities = saveableEntities;
+            _enemyRegistry = enemyRegistry;
             _playerSaveable = playerSaveable;
+            _scoreSystem = scoreSystem;
         }
 
         public async Task<LoadGameResponse> ExecuteAsync(LoadGameRequest request)
@@ -39,7 +43,7 @@ namespace Scripts.Save.Interactor
             try
             {
                 // Проверяем существование сохранения через мета-репозиторий
-                string sceneName = await _metaRepository.LoadSceneNameAsync(request.SaveId);
+                var (sceneName, killCount) = await _metaRepository.LoadMetaAsync(request.SaveId);
                 if (string.IsNullOrEmpty(sceneName))
                     return new LoadGameResponse { Success = false, Message = "Сохранение не найдено" };
 
@@ -55,18 +59,24 @@ namespace Scripts.Save.Interactor
                 var enemiesData = await _enemyRepository.LoadEnemiesAsync(request.SaveId);
                 if (enemiesData != null)
                 {
-                    var saveableDict = new Dictionary<string, IEntitySaveable>();
-                    foreach (var saveable in _saveableEntities)
-                        saveableDict[saveable.SaveId] = saveable;
+                    // 1. Сначала уничтожаем всех живых врагов на сцене (чтобы не было дубликатов)
+                    _enemyRegistry.ClearAll();
 
+                    // 2. Спавним тех, кто был в сохранении
                     foreach (var enemyState in enemiesData)
                     {
-                        if (saveableDict.TryGetValue(enemyState.id, out IEntitySaveable saveable))
+                        if (enemyState.isAlive)
                         {
-                            saveable.RestoreState(enemyState);
+                            var enemy = _enemyRegistry.CreateEnemyFromSave(enemyState);
+                            if (enemy != null)
+                            {
+                                enemy.RestoreState(enemyState);
+                            }
                         }
                     }
                 }
+
+                _scoreSystem.LoadScore(killCount);
 
                 return new LoadGameResponse { Success = true, Message = "Игра успешно загружена" };
             }

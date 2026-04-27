@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Scripts.Save.Domain;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Scripts.Systems.Score;
 
 namespace Scripts.Save.Interactor
 {
@@ -17,22 +18,25 @@ namespace Scripts.Save.Interactor
         private readonly IGameMetaRepository _metaRepository;
         private readonly IPlayerRepository _playerRepository;
         private readonly IEnemyRepository _enemyRepository;
-        
-        private readonly IEnumerable<IEntitySaveable> _saveableEntities;
+        private readonly Systems.Enemies.EnemyRegistry _enemyRegistry;
         private readonly IPlayerSaveable _playerSaveable;
+        private readonly ScoreSystem _scoreSystem;
 
         public SaveInteractor(
             IGameMetaRepository metaRepository,
             IPlayerRepository playerRepository,
             IEnemyRepository enemyRepository,
-            IEnumerable<IEntitySaveable> saveableEntities,
-            IPlayerSaveable playerSaveable)
+            Systems.Enemies.EnemyRegistry enemyRegistry,
+            IPlayerSaveable playerSaveable,
+            ScoreSystem scoreSystem
+            )
         {
             _metaRepository = metaRepository;
             _playerRepository = playerRepository;
             _enemyRepository = enemyRepository;
-            _saveableEntities = saveableEntities;
+            _enemyRegistry = enemyRegistry;
             _playerSaveable = playerSaveable;
+            _scoreSystem = scoreSystem;
         }
 
         public async Task<SaveGameResponse> ExecuteAsync(SaveGameRequest request)
@@ -41,7 +45,7 @@ namespace Scripts.Save.Interactor
             {
                 // 1. Сохраняем мету (Сцену)
                 string sceneName = SceneManager.GetActiveScene().name;
-                await _metaRepository.SaveMetaAsync(request.SaveId, sceneName);
+                await _metaRepository.SaveMetaAsync(request.SaveId, sceneName, _scoreSystem.KillCount);
 
                 // 2. Сохраняем игрока
                 if (_playerSaveable != null)
@@ -53,11 +57,11 @@ namespace Scripts.Save.Interactor
 
                 // 3. Сохраняем врагов
                 var enemiesData = new List<EntitySaveData>();
-                foreach (var saveable in _saveableEntities)
+                foreach (var enemy in _enemyRegistry.GetActiveEnemies())
                 {
-                    if (saveable is UnityEngine.Object unityObj && unityObj != null)
+                    if (enemy != null && enemy.gameObject.activeInHierarchy)
                     {
-                        enemiesData.Add(saveable.CaptureState());
+                        enemiesData.Add(enemy.CaptureState());
                     }
                 }
                 await _enemyRepository.SaveEnemiesAsync(request.SaveId, enemiesData);

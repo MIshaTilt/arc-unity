@@ -1,53 +1,28 @@
-// MeleeWalk.cs
 using UnityEngine;
-using Scripts.AI;
+using Scripts.AI.States.Mob;
+using Scripts.Configs;
 
-namespace Scripts
+namespace Scripts.AI
 {
     public class MeleeWalk : EnemyAI
     {
-        [SerializeField] private float _attackRange = 2f;
-        [SerializeField] private float _attackDamage = 10f;
+        public WeaponConfigSO[] AvailableWeapons; // Перетащи сюда SwordConfig и AxeConfig в инспекторе
 
-        protected override void ExecuteBehavior()
+        protected override void Start()
         {
-            float distance = Vector3.Distance(transform.position, _target.position);
+            // Выбираем случайное оружие при спавне
+            if (AvailableWeapons != null && AvailableWeapons.Length > 0)
+            {
+                CurrentWeapon = AvailableWeapons[Random.Range(0, AvailableWeapons.Length)];
+                AttackRange = CurrentWeapon.AttackRange; // Обновляем параметры ИИ
+                AttackCooldown = CurrentWeapon.AttackCooldown;
 
-            if (distance <= _detectionRange)
-            {
-                if (distance > _attackRange)
-                {
-                    _agent.SetDestination(_target.position);
-                    _animator?.SetFloat("Speed", 1f);
-                }
-                else
-                {
-                    _agent.SetDestination(transform.position);
-                    _animator?.SetFloat("Speed", 0f);
-                    PerformAttack();
-                }
+                EquipWeapon();
             }
-            else
-            {
-                _animator?.SetFloat("Speed", 0f);
-            }
+            
+            base.Start();
+            StateMachine.Initialize(new IdleState(StateMachine, this));
         }
 
-        private void PerformAttack()
-        {
-            if (_isAttacking || Time.time - _lastAttackTime < _attackCooldown) return;
-
-            _target.GetComponent<IDamageable>()?.TakeDamage(_attackDamage);
-            _lastAttackTime = Time.time;
-
-            if (_animator != null)
-            {
-                _isAttacking = true;
-                _animator.SetTrigger("Attack");
-                Invoke(nameof(StopAttack), 0.5f);
-            }
-        }
-
-        private void StopAttack() => _isAttacking = false;
     }
 }

@@ -13,11 +13,11 @@ namespace Scripts.Core
 
         private void Start()
         {
-            // Запрашиваем сервис у локатора 
             IAudioService audioService = ServiceLocator.Get<IAudioService>();
+            IGameSessionService sessionService = ServiceLocator.Get<IGameSessionService>();
 
             // Собираем MVC
-            _controller = new MainMenuController(_mainMenuView, audioService);
+            _controller = new MainMenuController(_mainMenuView, audioService, sessionService);
         }
     }
 }
